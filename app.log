@@ -1,0 +1,20 @@
+2023-09-23 02:44:15,526  : [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5000
+2023-09-23 02:44:15,526  : [33mPress CTRL+C to quit[0m
+2023-09-23 02:44:15,526  :  * Restarting with stat
+2023-09-23 02:44:15,619  :  * Debugger is active!
+2023-09-23 02:44:15,623  :  * Debugger PIN: 129-456-598
+2023-09-23 02:44:18,595  : Found value: Raina; For key: Sahil
+2023-09-23 02:44:18,595  : 127.0.0.1 - - [23/Sep/2023 02:44:18] "GET /get/Sahil HTTP/1.1" 200 -
+2023-09-23 02:44:44,337  :  * Detected change in '/Users/sahilraina/Documents/College/UMN Courses/MS First Semester/CSCI 5980 (Cloud Computing)/Coding Assignment 1/Cloud-Computing-HW-1/client.py', reloading
+2023-09-23 02:44:44,355  :  * Restarting with stat
+2023-09-23 02:44:44,506  :  * Debugger is active!
+2023-09-23 02:44:44,517  :  * Debugger PIN: 129-456-598
+2023-09-23 02:44:45,498  : No value found for key Random
+2023-09-23 02:44:45,499  : 127.0.0.1 - - [23/Sep/2023 02:44:45] "[33mGET /get/Random HTTP/1.1[0m" 404 -
+2023-09-23 02:45:12,225  :  * Detected change in '/Users/sahilraina/Documents/College/UMN Courses/MS First Semester/CSCI 5980 (Cloud Computing)/Coding Assignment 1/Cloud-Computing-HW-1/client.py', reloading
+2023-09-23 02:45:12,242  :  * Restarting with stat
+2023-09-23 02:45:12,434  :  * Debugger is active!
+2023-09-23 02:45:12,438  :  * Debugger PIN: 129-456-598
+2023-09-23 02:45:13,254  : Found value: Raina; For key: Sahil
+2023-09-23 02:45:13,254  : 127.0.0.1 - - [23/Sep/2023 02:45:13] "GET /get/Sahil HTTP/1.1" 200 -
