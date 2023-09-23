@@ -2,6 +2,9 @@ from flask import Flask, jsonify, request
 import os
 from flask_sqlalchemy import SQLAlchemy
 from models import db, Key_value
+import logging
+
+logging.basicConfig(filename='record.log')
 
 app = Flask(__name__)
 
@@ -33,7 +36,7 @@ def get_value():
                 }
 
 
-@app.route('/store/', methods=['PUT'])
+@app.route('/store', methods=['PUT'])
 def put_key():
     new_key = request.form['key']
     new_value = request.form['value']
@@ -58,7 +61,7 @@ def put_key():
                 'message': 'value is stored with a given key'
                 }
 
-@app.route('/remove/', methods=['DELETE'])
+@app.route('/remove', methods=['DELETE'])
 def remove_key():
     given_key = request.form['key']
 
