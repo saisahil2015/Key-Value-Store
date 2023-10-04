@@ -4,8 +4,8 @@ import threading
 
 HOST, PORT = "127.0.0.1", 80
 BASE_URL = f"http://{HOST}:{PORT}"
-NUM_REQUESTS = 10  # Number of requests to send per client
-NUM_CLIENTS = 1000  # Number of concurrent clients
+NUM_REQUESTS = 1000  # Number of requests to send per client
+NUM_CLIENTS = 10  # Number of concurrent clients
 
 throughputs = []
 latencies = []
