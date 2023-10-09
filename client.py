@@ -11,9 +11,25 @@ NUM_CLIENTS = 10  # Number of concurrent clients
 throughputs = []
 latencies = []
 
-combinations = ["RI", "WI", "B", "LK", "SK", "LV", "SV"]  # consider density later
+combinations = [
+    "RI",
+    "WI",
+    "B",
+]  # for each case, have varied sizes of keys/values to have large/small keys/values
 
 writeOps = ["Put", "Delete"]
+
+import random
+import string
+
+
+def generate_random_string(
+    k,
+    seed=None,
+):
+    random.seed(seed)
+
+    return "".join(random.choice(string.ascii_letters) for _ in range(k))
 
 
 def client_thread(client_id):
@@ -22,9 +38,7 @@ def client_thread(client_id):
 
     combination = random.choice(combinations)
 
-    NUM_OPS = random.randint(
-        1, 100
-    )  # Can increase this to max and focus on Key//value vary value
+    NUM_OPS = random.randint(1, 100)  # Can increase this to max
 
     NUM_WRITE_REQUESTS = 0
     NUM_READ_REQUESTS = 0
@@ -42,23 +56,27 @@ def client_thread(client_id):
         NUM_WRITE_REQUESTS = 1 - NUM_READ_REQUESTS
 
     for i in range(NUM_WRITE_REQUESTS):
-        key = f"key-{client_id}-{i}"
-        value = f"value-{client_id}-{i}"
+        seed = f"key-{client_id}-{i}"
+        key = generate_random_string(
+            seed, random.randint(1, 100)
+        )  # Can change this and increase the possible values
         writeRequest = random.choice(writeOps)
 
         if writeRequest == "PUT":
+            value = generate_random_string(random.randint(1, 100))
             requests.put(f"{BASE_URL}/store", data={"key": key, "value": value})
         else:
             requests.delete(f"{BASE_URL}/remove", data={"key": key})
 
     for j in range(NUM_READ_REQUESTS):
-        key = f"key-{client_id}-{j}"
-        value = f"value-{client_id}-{j}"
+        seed = f"key-{client_id}-{j}"
+        key = generate_random_string(seed, random.randint(1, 100))
         requests.get(f"{BASE_URL}/retrieve", data={"key": key})
 
     # End time
     end_time = time.time()
 
+    # Fix this and add the additional values
     elapsed_time = end_time - start_time
     throughput = NUM_REQUESTS * 3 / elapsed_time  # Multiply by 3 for PUT, GET, DEL
     throughputs.append(throughput)
