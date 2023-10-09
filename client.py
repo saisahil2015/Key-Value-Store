@@ -1,6 +1,7 @@
 import requests
 import time
 import threading
+import random
 
 HOST, PORT = "127.0.0.1", 80
 BASE_URL = f"http://{HOST}:{PORT}"
@@ -10,23 +11,50 @@ NUM_CLIENTS = 10  # Number of concurrent clients
 throughputs = []
 latencies = []
 
+combinations = ["RI", "WI", "B", "LK", "SK", "LV", "SV"]  # consider density later
+
+writeOps = ["Put", "Delete"]
+
 
 def client_thread(client_id):
     # Start time
     start_time = time.time()
 
-    for i in range(NUM_REQUESTS):
+    combination = random.choice(combinations)
+
+    NUM_OPS = random.randint(
+        1, 100
+    )  # Can increase this to max and focus on Key//value vary value
+
+    NUM_WRITE_REQUESTS = 0
+    NUM_READ_REQUESTS = 0
+
+    if combination == "RI":
+        NUM_READ_REQUESTS = round((NUM_OPS * 0.9))
+        NUM_WRITE_REQUESTS = 1 - NUM_READ_REQUESTS
+
+    elif combination == "WI":
+        NUM_READ_REQUESTS = round(NUM_OPS * 0.1)
+        NUM_WRITE_REQUESTS = 1 - NUM_READ_REQUESTS
+
+    elif combination == "B":
+        NUM_READ_REQUESTS = round(NUM_OPS * 0.5)
+        NUM_WRITE_REQUESTS = 1 - NUM_READ_REQUESTS
+
+    for i in range(NUM_WRITE_REQUESTS):
         key = f"key-{client_id}-{i}"
         value = f"value-{client_id}-{i}"
+        writeRequest = random.choice(writeOps)
 
-        # PUT request
-        requests.put(f"{BASE_URL}/store", data={"key": key, "value": value})
+        if writeRequest == "PUT":
+            requests.put(f"{BASE_URL}/store", data={"key": key, "value": value})
+        else:
+            requests.delete(f"{BASE_URL}/remove", data={"key": key})
 
-        # GET request
+    for j in range(NUM_READ_REQUESTS):
+        key = f"key-{client_id}-{j}"
+        value = f"value-{client_id}-{j}"
         requests.get(f"{BASE_URL}/retrieve", data={"key": key})
-
-        # DEL request
-        requests.delete(f"{BASE_URL}/remove", data={"key": key})
 
     # End time
     end_time = time.time()
