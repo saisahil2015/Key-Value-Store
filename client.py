@@ -2,11 +2,19 @@ import requests
 import time
 import threading
 import random
+import string
+import cProfile
+import pstats
+from memory_profiler import memory_usage
+import io
+import psutil
+import os
+
 
 HOST, PORT = "127.0.0.1", 80
 BASE_URL = f"http://{HOST}:{PORT}"
-NUM_REQUESTS = 1000  # Number of requests to send per client
-NUM_CLIENTS = 10  # Number of concurrent clients
+# NUM_REQUESTS = 1000  # Number of requests to send per client
+NUM_CLIENTS = 1  # 10 # Number of concurrent clients
 
 throughputs = []
 latencies = []
@@ -19,9 +27,6 @@ combinations = [
 
 writeOps = ["Put", "Delete"]
 
-import random
-import string
-
 
 def generate_random_string(
     k,
@@ -33,32 +38,78 @@ def generate_random_string(
 
 
 def client_thread(client_id):
-    # Start time
+    # print(f"Thread {client_id} started")
+    pr = cProfile.Profile()
+    pr.enable()
+
+    process = psutil.Process(os.getpid())
+    before_memory = process.memory_info().rss / 1024 / 1024  # Convert bytes to MB
+
+    client_ops(client_id)
+
+    after_memory = process.memory_info().rss / 1024 / 1024  # Convert bytes to MB
+
+    pr.disable()
+
+    s = io.StringIO()
+    stats = pstats.Stats(pr, stream=s).strip_dirs().sort_stats(pstats.SortKey.TIME)
+    stats.print_stats()
+
+    max_memory_used = after_memory - before_memory
+    print(f"Client-{client_id} | Max Memory Used: {max_memory_used:.2f} MB")
+
+    total_tottime = 0
+    total_cumtime = 0
+    total_calls = 0
+
+    # Loop through all recorded function stats
+    for func_name, func_stats in stats.stats.items():
+        cc, nc, tottime, cumtime, callers = func_stats
+
+        total_tottime += tottime
+        total_cumtime += cumtime
+        total_calls += cc  # considering primitive calls
+
+    overall_percall_tottime = total_tottime / total_calls if total_calls != 0 else 0
+    overall_percall_cumtime = total_cumtime / total_calls if total_calls != 0 else 0
+
+    print(f"Client {client_id} | Overall Total Time: {total_tottime}")
+    print(f"Client {client_id} | Overall Cumulative Time: {total_cumtime}")
+    print(
+        f"Client {client_id} | Overall Total Time Per Call: {overall_percall_tottime}"
+    )
+    print(
+        f"Client {client_id} | Overall Cumulative Time Per Call: {overall_percall_cumtime}"
+    )
+
+
+def client_ops(client_id):
     start_time = time.time()
+    # print(f"Client {client_id} operations started")
 
     combination = random.choice(combinations)
 
-    NUM_OPS = random.randint(1, 100)  # Can increase this to max
+    NUM_REQUESTS = random.randint(1, 100)  # Can increase this to max
 
     NUM_WRITE_REQUESTS = 0
     NUM_READ_REQUESTS = 0
 
     if combination == "RI":
-        NUM_READ_REQUESTS = round((NUM_OPS * 0.9))
+        NUM_READ_REQUESTS = round((NUM_REQUESTS * 0.9))
         NUM_WRITE_REQUESTS = 1 - NUM_READ_REQUESTS
 
     elif combination == "WI":
-        NUM_READ_REQUESTS = round(NUM_OPS * 0.1)
+        NUM_READ_REQUESTS = round(NUM_REQUESTS * 0.1)
         NUM_WRITE_REQUESTS = 1 - NUM_READ_REQUESTS
 
     elif combination == "B":
-        NUM_READ_REQUESTS = round(NUM_OPS * 0.5)
+        NUM_READ_REQUESTS = round(NUM_REQUESTS * 0.5)
         NUM_WRITE_REQUESTS = 1 - NUM_READ_REQUESTS
 
     for i in range(NUM_WRITE_REQUESTS):
         seed = f"key-{client_id}-{i}"
         key = generate_random_string(
-            seed, random.randint(1, 100)
+            random.randint(1, 100), seed
         )  # Can change this and increase the possible values
         writeRequest = random.choice(writeOps)
 
@@ -70,18 +121,17 @@ def client_thread(client_id):
 
     for j in range(NUM_READ_REQUESTS):
         seed = f"key-{client_id}-{j}"
-        key = generate_random_string(seed, random.randint(1, 100))
+        key = generate_random_string(random.randint(1, 100), seed)
         requests.get(f"{BASE_URL}/retrieve", data={"key": key})
 
-    # End time
     end_time = time.time()
-
-    # Fix this and add the additional values
     elapsed_time = end_time - start_time
-    throughput = NUM_REQUESTS * 3 / elapsed_time  # Multiply by 3 for PUT, GET, DEL
+    throughput = NUM_REQUESTS / elapsed_time
+    latency = elapsed_time / NUM_REQUESTS
     throughputs.append(throughput)
-    latency = elapsed_time / (NUM_REQUESTS * 3)  # Average latency per request
     latencies.append(latency)
+
+    # print(f"Client {client_id} operations ended")
 
     print(
         f"Client-{client_id} | Throughput: {throughput:.2f} req/s | Average Latency: {latency:.6f} seconds"
@@ -98,7 +148,7 @@ if __name__ == "__main__":
     for t in clients:
         t.join()
 
-    print("Overall Throughput: ", sum(throughputs) / NUM_CLIENTS)
-    print("Overall Latency: ", sum(latencies) / NUM_CLIENTS)
+    print("Overall Throughput: ", sum(throughputs) / len(throughputs))
+    print("Overall Latency: ", sum(latencies) / len(latencies))
 
     print("Testing completed.")
