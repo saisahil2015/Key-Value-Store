@@ -16,3 +16,5 @@ class Workload(db.Model):
     cpu_total_cumtime = db.Column(db.Float)
     cpu_percall_tottime = db.Column(db.Float)
     cpu_percall_cumtime = db.Column(db.Float)
+    throughput = db.Column(db.Float)
+    latency = db.Column(db.Float)

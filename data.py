@@ -1,4 +1,5 @@
 import sqlite3
+import csv
 
 print("Check")
 # Connect to your database
@@ -10,9 +11,19 @@ cursor = conn.cursor()
 cursor.execute("SELECT * FROM Workload;")
 
 # Fetch and display results
+print([description[0] for description in cursor.description])
 rows = cursor.fetchall()
 for row in rows:
     print(row)
+
+# Write to CSV
+with open('data.csv', 'w', newline='') as csv_file:
+    csv_writer = csv.writer(csv_file, delimiter=',')
+    
+    header = [description[0] for description in cursor.description]
+    csv_writer.writerow(header)
+    
+    csv_writer.writerows(rows)
 
 # Close connection
 conn.close()

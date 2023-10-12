@@ -9,6 +9,8 @@ flask-sqlalchemy = "*"
 requests = "*"
 memory-profiler = "*"
 snakeviz = "*"
+numpy = "*"
+scikit-learn = "*"
 
 [dev-packages]
 

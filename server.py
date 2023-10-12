@@ -133,6 +133,8 @@ def store_metrics():
             cpu_total_cumtime=data["cpu_total_cumtime"],
             cpu_percall_tottime=data["cpu_percall_tottime"],
             cpu_percall_cumtime=data["cpu_percall_cumtime"],
+            throughput=data["throughput"],
+            latency=data["latency"],
         )
         db.session.add(new_metric)
         db.session.commit()

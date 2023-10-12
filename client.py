@@ -15,7 +15,7 @@ from queue import Queue
 HOST, PORT = "127.0.0.1", 80
 BASE_URL = f"http://{HOST}:{PORT}"
 # NUM_REQUESTS = 1000  # Number of requests to send per client
-NUM_CLIENTS = 10  # 10 # Number of concurrent clients
+NUM_CLIENTS = 500  # 10 # Number of concurrent clients
 
 throughputs = []
 latencies = []
@@ -47,7 +47,7 @@ def client_thread(client_id):
     process = psutil.Process(os.getpid())
     before_memory = process.memory_info().rss / 1024 / 1024  # Convert bytes to MB
 
-    client_ops(client_id)
+    throughput, latency = client_ops(client_id)
 
     after_memory = process.memory_info().rss / 1024 / 1024  # Convert bytes to MB
 
@@ -91,6 +91,8 @@ def client_thread(client_id):
         "cpu_total_cumtime": total_cumtime,
         "cpu_percall_tottime": overall_percall_tottime,
         "cpu_percall_cumtime": overall_percall_cumtime,
+        "throughput": throughput,
+        "latency": latency,
     }
 
     response = requests.post(f"{BASE_URL}/metrics", json=metrics)
@@ -160,6 +162,8 @@ def client_ops(client_id):
     print(
         f"Client-{client_id} | Throughput: {throughput:.2f} req/s | Average Latency: {latency:.6f} seconds"
     )
+
+    return throughput, latency
 
 
 if __name__ == "__main__":
