@@ -2,14 +2,15 @@ from flask import Flask, jsonify, request
 import logging
 import os
 from flask_sqlalchemy import SQLAlchemy
-from models import db, Key_value
+from models import db, Key_value, Workload
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.exc import NoResultFound
+import json
 
 app = Flask(__name__)
 
 # sqllite
-sqllite_uri = "sqlite:///" + os.path.abspath(os.path.curdir) + "/key_values.db"
+sqllite_uri = "sqlite:///" + os.path.abspath(os.path.curdir) + "/databases.db"
 app.config["SQLALCHEMY_DATABASE_URI"] = sqllite_uri
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
@@ -19,6 +20,7 @@ db.init_app(app)
 with app.app_context():
     try:
         Key_value.query.all()
+        Workload.quert.all()
     except:
         db.create_all()
 
@@ -115,6 +117,36 @@ def remove_key():
         message = f"Failed to delete the key [{given_key}] due to a concurrent operation. Please try again."
         app.logger.error(message)
         return jsonify({"status": "error", "message": message}), 500
+
+
+@app.route("/metrics", methods=["POST"])
+def store_metrics():
+    """
+    Store received metrics in the database.
+    """
+    data = request.get_json()
+    try:
+        new_metric = Workload(
+            client_id=data["client_id"],
+            max_memory_used=data["max_memory_used"],
+            cpu_total_tottime=data["cpu_total_tottime"],
+            cpu_total_cumtime=data["cpu_total_cumtime"],
+            cpu_percall_tottime=data["cpu_percall_tottime"],
+            cpu_percall_cumtime=data["cpu_percall_cumtime"],
+        )
+        db.session.add(new_metric)
+        db.session.commit()
+        return (
+            jsonify({"status": "success", "message": "Metrics stored successfully."}),
+            201,
+        )
+
+    except KeyError:
+        return jsonify({"status": "error", "message": "Malformed data."}), 400
+
+    except IntegrityError as e:
+        db.session.rollback()
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 
 if __name__ == "__main__":

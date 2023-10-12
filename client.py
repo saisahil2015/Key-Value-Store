@@ -9,15 +9,17 @@ from memory_profiler import memory_usage
 import io
 import psutil
 import os
+from queue import Queue
 
 
 HOST, PORT = "127.0.0.1", 80
 BASE_URL = f"http://{HOST}:{PORT}"
 # NUM_REQUESTS = 1000  # Number of requests to send per client
-NUM_CLIENTS = 1  # 10 # Number of concurrent clients
+NUM_CLIENTS = 10  # 10 # Number of concurrent clients
 
 throughputs = []
 latencies = []
+
 
 combinations = [
     "RI",
@@ -82,6 +84,21 @@ def client_thread(client_id):
         f"Client {client_id} | Overall Cumulative Time Per Call: {overall_percall_cumtime}"
     )
 
+    metrics = {
+        "client_id": client_id,
+        "max_memory_used": max_memory_used,
+        "cpu_total_tottime": total_tottime,
+        "cpu_total_cumtime": total_cumtime,
+        "cpu_percall_tottime": overall_percall_tottime,
+        "cpu_percall_cumtime": overall_percall_cumtime,
+    }
+
+    response = requests.post(f"{BASE_URL}/metrics", json=metrics)
+    if response.status_code == 201:
+        print(f"Client-{client_id} | Metrics successfully sent to the server.")
+    else:
+        print(f"Client-{client_id} | Failed to send metrics to server: {response.text}")
+
 
 def client_ops(client_id):
     start_time = time.time()
@@ -96,30 +113,37 @@ def client_ops(client_id):
 
     if combination == "RI":
         NUM_READ_REQUESTS = round((NUM_REQUESTS * 0.9))
-        NUM_WRITE_REQUESTS = 1 - NUM_READ_REQUESTS
+        NUM_WRITE_REQUESTS = NUM_REQUESTS - NUM_READ_REQUESTS
 
     elif combination == "WI":
         NUM_READ_REQUESTS = round(NUM_REQUESTS * 0.1)
-        NUM_WRITE_REQUESTS = 1 - NUM_READ_REQUESTS
+        NUM_WRITE_REQUESTS = NUM_REQUESTS - NUM_READ_REQUESTS
 
     elif combination == "B":
         NUM_READ_REQUESTS = round(NUM_REQUESTS * 0.5)
-        NUM_WRITE_REQUESTS = 1 - NUM_READ_REQUESTS
+        NUM_WRITE_REQUESTS = NUM_REQUESTS - NUM_READ_REQUESTS
 
     for i in range(NUM_WRITE_REQUESTS):
         seed = f"key-{client_id}-{i}"
         key = generate_random_string(
             random.randint(1, 100), seed
         )  # Can change this and increase the possible values
-        writeRequest = random.choice(writeOps)
+        # writeRequest = random.choice(writeOps)
+        # print("Ops: ", writeRequest)
+        # writeRequest = "PUT"
 
-        if writeRequest == "PUT":
-            value = generate_random_string(random.randint(1, 100))
-            requests.put(f"{BASE_URL}/store", data={"key": key, "value": value})
-        else:
-            requests.delete(f"{BASE_URL}/remove", data={"key": key})
+        # print("Check PUT:")
+
+        # if writeRequest == "PUT":
+        print("write")
+        value = generate_random_string(random.randint(1, 100))
+        requests.put(f"{BASE_URL}/store", data={"key": key, "value": value})
+        # else:
+        #     print("delete")
+        #     requests.delete(f"{BASE_URL}/remove", data={"key": key})
 
     for j in range(NUM_READ_REQUESTS):
+        # print("CHECK Retrive")
         seed = f"key-{client_id}-{j}"
         key = generate_random_string(random.randint(1, 100), seed)
         requests.get(f"{BASE_URL}/retrieve", data={"key": key})
