@@ -47,7 +47,7 @@ def client_thread(client_id):
     process = psutil.Process(os.getpid())
     before_memory = process.memory_info().rss / 1024 / 1024  # Convert bytes to MB
 
-    throughput, latency = client_ops(client_id)
+    num_read, num_write, throughput, latency = client_ops(client_id)
 
     after_memory = process.memory_info().rss / 1024 / 1024  # Convert bytes to MB
 
@@ -86,6 +86,9 @@ def client_thread(client_id):
 
     metrics = {
         "client_id": client_id,
+        "num_read": num_read,
+        "num_write": num_write,
+        "read_write_ratio": num_read / num_write,
         "max_memory_used": max_memory_used,
         "cpu_total_tottime": total_tottime,
         "cpu_total_cumtime": total_cumtime,
@@ -163,7 +166,7 @@ def client_ops(client_id):
         f"Client-{client_id} | Throughput: {throughput:.2f} req/s | Average Latency: {latency:.6f} seconds"
     )
 
-    return throughput, latency
+    return NUM_READ_REQUESTS, NUM_WRITE_REQUESTS, throughput, latency
 
 
 if __name__ == "__main__":

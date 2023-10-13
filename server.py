@@ -128,6 +128,9 @@ def store_metrics():
     try:
         new_metric = Workload(
             client_id=data["client_id"],
+            num_read=data["num_read"],
+            num_write=data["num_write"],
+            read_write_ratio=data["read_write_ratio"],
             max_memory_used=data["max_memory_used"],
             cpu_total_tottime=data["cpu_total_tottime"],
             cpu_total_cumtime=data["cpu_total_cumtime"],

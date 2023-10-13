@@ -8,8 +8,8 @@ def read_csv(file_name='data.csv'):
     data = np.delete(data, [0, 1], axis=1)
 
     # split the data into features and labels
-    X = data[:, :-2]
-    y = data[:, -2:]
+    X = data[:, :3]
+    y = data[:, 3:]
 
     return X, y
 
