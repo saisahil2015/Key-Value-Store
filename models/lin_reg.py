@@ -15,4 +15,4 @@ model = LinearRegression()
 model.fit(X_train, y_train)
 
 # validation
-y_pred = validate(model, X_test, y_test, 'Linear Regression')
+y_pred, rmse, mae = validate(model, X_test, y_test, 'Linear Regression')

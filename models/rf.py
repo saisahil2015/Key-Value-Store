@@ -15,4 +15,4 @@ model = RandomForestRegressor(n_estimators=100, random_state=42)
 model.fit(X_train, y_train)
 
 # validation
-y_pred = validate(model, X_test, y_test, 'Random Forest Regression')
+y_pred, rmse, mae = validate(model, X_test, y_test, 'Random Forest Regression')
