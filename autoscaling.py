@@ -12,6 +12,7 @@ import os
 from queue import Queue
 import subprocess
 import signal
+import joblib
 
 
 HOST, PORT = "127.0.0.1", 80
@@ -68,6 +69,8 @@ def remove_all_containers():
 def get_config_prediction(num_read, num_write, r_w_ratio):
     # TODO model implementation
     # output: cpu, memory usage prediction
+    rf_model = joblib.load('models/rf.joblib')
+    prediction = rf_model.predict([[num_read, num_write, r_w_ratio]])
     return 0
 
 
