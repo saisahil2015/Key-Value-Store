@@ -2,8 +2,9 @@ import requests
 import time
 import threading
 
-HOST, PORT = "127.0.0.1", 80
-BASE_URL = f"http://{HOST}:{PORT}"
+# HOST, PORT = "127.0.0.1", 8000
+# BASE_URL = f"http://{HOST}:{PORT}"
+BASE_URL = "http://localhost:80"
 NUM_REQUESTS = 1000  # Number of requests to send per client
 NUM_CLIENTS = 10  # Number of concurrent clients
 
@@ -20,13 +21,13 @@ def client_thread(client_id):
         value = f"value-{client_id}-{i}"
 
         # PUT request
-        requests.put(f"{BASE_URL}/store", data={"key": key, "value": value})
+        requests.put(f"{BASE_URL}/store", params={"key": key}, data={"value": value})
 
         # GET request
-        requests.get(f"{BASE_URL}/retrieve", data={"key": key})
+        requests.get(f"{BASE_URL}/retrieve", params={"key": key})
 
         # DEL request
-        requests.delete(f"{BASE_URL}/remove", data={"key": key})
+        requests.delete(f"{BASE_URL}/remove", params={"key": key})
 
     # End time
     end_time = time.time()

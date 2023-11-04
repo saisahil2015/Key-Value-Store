@@ -32,7 +32,7 @@ logging.basicConfig(
 
 @app.route("/retrieve", methods=["GET"])
 def get_value():
-    given_key = request.form["key"]
+    given_key = request.args.get("key")
     matched_key_value = Key_value.query.filter_by(key=given_key).first()
 
     # find a given key in database
@@ -59,7 +59,7 @@ def get_value():
 
 @app.route("/store", methods=["PUT"])
 def put_key():
-    new_key = request.form["key"]
+    new_key = request.args.get("key")
     new_value = request.form["value"]
 
     try:
@@ -91,7 +91,7 @@ def put_key():
 
 @app.route("/remove", methods=["DELETE"])
 def remove_key():
-    given_key = request.form["key"]
+    given_key = request.args.get("key")
 
     try:
         # Locking the row for deletion to prevent concurrent modifications
