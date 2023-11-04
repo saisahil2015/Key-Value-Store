@@ -1,6 +1,8 @@
 import requests
 import time
 import threading
+import json
+import argparse
 
 # HOST, PORT = "127.0.0.1", 8000
 # BASE_URL = f"http://{HOST}:{PORT}"
@@ -44,6 +46,16 @@ def client_thread(client_id):
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--title", type=str, default="key value store")
+    parser.add_argument("--filename", type=str, default="kv.json")
+
+    args = parser.parse_args()
+    title = args.title
+    filename = args.filename
+
+    print(f"Testing {title}.")
+
     clients = []
     for i in range(NUM_CLIENTS):
         t = threading.Thread(target=client_thread, args=(i,))
@@ -53,7 +65,13 @@ if __name__ == "__main__":
     for t in clients:
         t.join()
 
-    print("Overall Throughput: ", sum(throughputs) / NUM_CLIENTS)
+    # write throughput and latency into a json file
+    json_data = {"throughput": throughputs, "latency": latencies}
+    with open("data/" + filename, "w") as f:
+        print("Writing data to", filename)
+        json.dump(json_data, f)
+
+    print("Overall Throughput: ", sum(throughputs))
     print("Overall Latency: ", sum(latencies) / NUM_CLIENTS)
 
     print("Testing completed.")
