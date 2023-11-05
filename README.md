@@ -59,6 +59,12 @@
   access_log /Users/jingxian/code/5980/kv-store/access.log upstreamlog;
   ```
 
+- Run `client.py` and provide title and filename optionally to output the metrics into the file
+
+  ```bash
+  python3 client.py --title "3 kv" --filename "kv3.json"
+  ```
+
 - Optional: stop the docker containers and stop Nginx
   ```
   docker stop kv1 kv2 kv3
