@@ -173,8 +173,6 @@ def client_ops(client_id):
 
 def docker_client_thread():
     # launch a container
-    container = docker_client.containers.run(image_name, detach=True, )
-
     # get cpu and memory usage before handling requests
     # send requests to the container
     # get cpu and memory usage after handling requests

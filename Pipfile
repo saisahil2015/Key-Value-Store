@@ -11,6 +11,7 @@ memory-profiler = "*"
 snakeviz = "*"
 numpy = "*"
 scikit-learn = "*"
+docker = "*"
 
 [dev-packages]
 
