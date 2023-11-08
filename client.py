@@ -3,6 +3,8 @@ import time
 import threading
 import json
 import argparse
+import docker
+from consistent_hashing import HashRing
 
 # HOST, PORT = "127.0.0.1", 8000
 # BASE_URL = f"http://{HOST}:{PORT}"
@@ -13,6 +15,14 @@ NUM_CLIENTS = 10  # Number of concurrent clients
 throughputs = []
 latencies = []
 
+image_name = "docker-kv-store"
+
+# container_names = ["container1"]
+container_names = ["container1", "container2"]
+# container_names = ["container1", "container2", "container3"]
+
+ring = HashRing(nodes=container_names)
+
 
 def client_thread(client_id):
     # Start time
@@ -22,14 +32,27 @@ def client_thread(client_id):
         key = f"key-{client_id}-{i}"
         value = f"value-{client_id}-{i}"
 
+        container_address = None
+
+        container_name = ring.get_node(key)
+
+        if container_name == "container1":
+            container_address = "http://localhost:8070"
+        elif container_name == "container2":
+            container_address = "http://localhost:8080"
+        elif container_name == "container3":
+            container_address = "http://localhost:8090"
+
         # PUT request
-        requests.put(f"{BASE_URL}/store", params={"key": key}, data={"value": value})
+        requests.put(
+            f"{container_address}/store", params={"key": key}, data={"value": value}
+        )
 
         # GET request
-        requests.get(f"{BASE_URL}/retrieve", params={"key": key})
+        requests.get(f"{container_address}/retrieve", params={"key": key})
 
         # DEL request
-        requests.delete(f"{BASE_URL}/remove", params={"key": key})
+        requests.delete(f"{container_address}/remove", params={"key": key})
 
     # End time
     end_time = time.time()
