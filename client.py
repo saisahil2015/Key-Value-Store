@@ -4,7 +4,7 @@ import threading
 import json
 import argparse
 
-# HOST, PORT = "127.0.0.1", 8000
+# HOST, PORT = "127.0.0.1", 5000
 # BASE_URL = f"http://{HOST}:{PORT}"
 BASE_URL = "http://localhost:80"
 NUM_REQUESTS = 1000  # Number of requests to send per client
@@ -65,11 +65,11 @@ if __name__ == "__main__":
     for t in clients:
         t.join()
 
-    # write throughput and latency into a json file
-    json_data = {"throughput": throughputs, "latency": latencies}
-    with open("data/" + filename, "w") as f:
-        print("Writing data to", filename)
-        json.dump(json_data, f)
+    # # write throughput and latency into a json file
+    # json_data = {"throughput": throughputs, "latency": latencies}
+    # with open("data/" + filename, "w") as f:
+    #     print("Writing data to", filename)
+    #     json.dump(json_data, f)
 
     print("Overall Throughput: ", sum(throughputs))
     print("Overall Latency: ", sum(latencies) / NUM_CLIENTS)
