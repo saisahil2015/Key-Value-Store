@@ -32,22 +32,36 @@
 
 ### Instructions for testing (coding assignment 2):
 
-- Run 3 key value store containers
+- `in-memory-kv.py` - in-memory key value store
 
-  ```bash
-  docker run -d --name kv1 -p 8070:80 docker-kv-store
-  docker run -d --name kv2 -p 8080:80 docker-kv-store
-  docker run -d --name kv3 -p 8090:80 docker-kv-store
+  to start the key value store run the following command, and provide the port and a log file location
+
+  ```
+  python3 in-memory-kv.py --port 8080 --log app-8080.log
   ```
 
-- Make sure the Nginx configuration file specify 3 connections on the port the docker containers are using. For example in the code below, port `8070`, `8080`, `8090` are used as 3 key value stores.
+- `new_client.py` - client test
+
+  to test multiple settings all at once and output the collected data into a json file, run
+
+  ```
+  python3 new_client.py --filename 3kv-nginx-fix-op-var-proc.json
+  ```
+
+  to run one setting, run the following command, and provide number of request and number of processes
+
+  ```
+  python3 client_new.py --n_ops 100 --n_proc 2
+  ```
+
+- Make sure the Nginx configuration file specify 3 connections on the port the docker containers are using. For example in the code below, port `8080`, `8081`, `8082` are used as 3 key value stores.
 
   ```
     upstream loadbalance {
       hash $arg_key consistent;
-      server localhost:8070;
       server localhost:8080;
-      server localhost:8090;
+      server localhost:8081;
+      server localhost:8082;
     }
   ```
 
@@ -59,15 +73,8 @@
   access_log /Users/jingxian/code/5980/kv-store/access.log upstreamlog;
   ```
 
-- Run `client.py` and provide title and filename optionally to output the metrics into the file
+  or optionally turn off the log
 
-  ```bash
-  python3 client.py --title "3 kv" --filename "kv3.json"
   ```
-
-- Optional: stop the docker containers and stop Nginx
-  ```
-  docker stop kv1 kv2 kv3
-  docker rm kv1 kv2 kv3
-  nginx -s quit
+  access_log off;
   ```

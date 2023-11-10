@@ -107,6 +107,7 @@ if __name__ == '__main__':
     num_processes = args.n_proc
 
     # =============== testing multiple settings at once ===============
+    # comment out this part if you want to test one setting at a time
 
     num_operations = 100 # fix 
 
@@ -131,6 +132,7 @@ if __name__ == '__main__':
         json.dump(json_data, f, indent=2)
 
     # ================= testing one setting at a time =================
+    # uncomment this part if you want to test one setting at a time
 
     # print("Number of processes:", num_processes)
     # print("Number of operations:", num_operations)
