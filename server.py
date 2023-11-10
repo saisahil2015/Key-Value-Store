@@ -127,19 +127,13 @@
 from flask import Flask, jsonify, request
 import logging
 import threading
+import argparse
 
 app = Flask(__name__)
 
 # In-memory store
 key_values_store = {}
 store_lock = threading.Lock()
-
-# logging
-logging.basicConfig(
-    filename="app.log",
-    level=logging.DEBUG,
-    format="%(asctime)s  : %(message)s",
-)
 
 
 @app.route("/retrieve", methods=["GET"])
@@ -199,7 +193,22 @@ def remove_key():
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=80, debug=True, threaded=True)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--port", type=int, default=8080)
+    parser.add_argument("--log", type=str, default="app.log")
+
+    args = parser.parse_args()
+    port = args.port
+    log_filename = args.log
+
+    # logging
+    logging.basicConfig(
+        filename=log_filename,
+        level=logging.DEBUG,
+        format="%(asctime)s  : %(message)s",
+    )
+
+    app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
     # app.run(host="0.0.0.0", port=80, debug=True)
 
 
