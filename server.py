@@ -131,11 +131,8 @@ def store_metrics():
             num_read=data["num_read"],
             num_write=data["num_write"],
             read_write_ratio=data["read_write_ratio"],
-            max_memory_used=data["max_memory_used"],
-            cpu_total_tottime=data["cpu_total_tottime"],
-            cpu_total_cumtime=data["cpu_total_cumtime"],
-            cpu_percall_tottime=data["cpu_percall_tottime"],
-            cpu_percall_cumtime=data["cpu_percall_cumtime"],
+            cpu_usage=data["cpu_usage"],
+            memory_usage=data["memory_usage"],
             throughput=data["throughput"],
             latency=data["latency"],
         )

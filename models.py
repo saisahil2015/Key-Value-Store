@@ -15,6 +15,6 @@ class Workload(db.Model):
     num_write = db.Column(db.Integer)
     read_write_ratio = db.Column(db.Float)
     cpu_usage = db.Column(db.Float)
-    max_memory_used = db.Column(db.Float)
+    memory_usage = db.Column(db.Float)
     throughput = db.Column(db.Float)
     latency = db.Column(db.Float)
