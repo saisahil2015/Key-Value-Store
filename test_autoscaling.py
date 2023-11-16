@@ -13,6 +13,7 @@ from queue import Queue
 import subprocess
 import signal
 import docker
+import joblib
 
 
 HOST, PORT = "127.0.0.1", 80
@@ -73,7 +74,12 @@ def remove_all_containers():
 def get_resource_usage_prediction(num_read, num_write_, rw_ratio):
     # TODO model predicts the resource usage
     # output: cpu, memory usage prediction
-    
+    rf_model = joblib.load('models/rf.joblib')
+    prediction = rf_model.predict([[num_read, num_write, r_w_ratio]])
+    return 0
+
+
+def change_docker_config(server, cpu, memory, memory_swap):
     # FIX LATER: get random num of cpu and memory usage now
     predict_cpu = random.uniform(1, 100)
     predict_memory = random.uniform(1, 10000)

@@ -2,6 +2,7 @@
 
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import train_test_split
+from joblib import dump
 
 from utils import read_csv, validate
 
@@ -16,3 +17,6 @@ model.fit(X_train, y_train)
 
 # validation
 y_pred, rmse, mae, r2 = validate(model, X_test, y_test, 'Random Forest Regression')
+
+# save the model
+dump(model, 'models/rf.joblib')
