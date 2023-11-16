@@ -12,6 +12,7 @@ import os
 from queue import Queue
 import subprocess
 import signal
+import docker
 import joblib
 
 
@@ -37,22 +38,26 @@ _servers = []
 task_in_servers = {}
 server_available = threading.Condition()
 
+# Initialize the Docker client
+client = docker.from_env()
 
-url0 = f"http://{HOST}:8080"
-url1 = f"http://{HOST}:8081"
-url2 = f"http://{HOST}:8082"
+current_port = 8070
+
+
+def launch_new_container():
+    global current_port
+    url = f"http://{HOST}:{current_port}"
+    command = f"docker run -d -p {current_port}:80 docker-kv-store"
+    result = subprocess.run(command.split(), stdout=subprocess.PIPE)
+    container_id = result.stdout.decode('utf-8')
+    servers[container_id] = url 
+    _servers.append((container_id,url))     
+    current_port += 10
+
 
 def run_all_servers(num_of_containers):
-    first_port = 8080
     for i in range(0, num_of_containers):
-        port_num = first_port + i
-        url = f"http://{HOST}:{port_num}"
-        command = f"docker run -d -p {port_num}:80 docker-kv-store"
-        result = subprocess.run(command.split(), stdout=subprocess.PIPE)
-        container_id = result.stdout.decode('utf-8')
-        servers[container_id] = url
-        _servers.append((container_id,url))
-        task_in_servers[container_id] = True
+        launch_new_container()
 
     print(servers)
     return 0
@@ -66,8 +71,8 @@ def remove_all_containers():
         subprocess.run(rm_command.split())
 
 
-def get_config_prediction(num_read, num_write, r_w_ratio):
-    # TODO model implementation
+def get_resource_usage_prediction(num_read, num_write_, rw_ratio):
+    # TODO model predicts the resource usage
     # output: cpu, memory usage prediction
     rf_model = joblib.load('models/rf.joblib')
     prediction = rf_model.predict([[num_read, num_write, r_w_ratio]])
@@ -75,135 +80,74 @@ def get_config_prediction(num_read, num_write, r_w_ratio):
 
 
 def change_docker_config(server, cpu, memory, memory_swap):
+    # FIX LATER: get random num of cpu and memory usage now
+    predict_cpu = random.uniform(1, 100)
+    predict_memory = random.uniform(1, 10000)
+
+    print("required CPU usage: {:.2f}".format(predict_cpu))
+    print(f"required Memory usage: {predict_memory}")
+    return predict_cpu, predict_memory
+
+
+def calculate_cpu_percent(d):
+    print("--------------")
+    print(d["cpu_stats"]["cpu_usage"])
+    print("--------------")
+    #cpu_count = len(d["cpu_stats"]["cpu_usage"]["percpu_usage"])
+    cpu_percent = 0.0
+    cpu_delta = float(d["cpu_stats"]["cpu_usage"]["total_usage"]) - \
+                float(d["precpu_stats"]["cpu_usage"]["total_usage"])
+    system_delta = float(d["cpu_stats"]["system_cpu_usage"]) - \
+                   float(d["precpu_stats"]["system_cpu_usage"])
+    if system_delta > 0.0:
+        cpu_percent = cpu_delta / system_delta * 100.0
+    return cpu_percent
+
+
+def no_space_in_container():
+    # List all running containers
+    containers = client.containers.list()
+
+    required_cpu, required_memory = get_resource_usage_prediction(10, 90, 0.9)
+
+    # Extract and print the names of running containers
+    for container in containers:
+        print("Container Name:", container.name)
+        stats = container.stats(stream=False)
+
+        cpu_percentage = calculate_cpu_percent(stats)
+        # Extract CPU and memory usage information
+        print("cpu usage: {:.2f}".format(cpu_percentage))
+
+        memory_stats = stats['memory_stats']['usage']
+        memory_stats_mb = memory_stats / (1024 * 1024)
+
+        # Extract the memory limit (in bytes) from the container stats
+        memory_limit = stats['memory_stats']['limit']
+        # Convert the memory limit to megabytes for readability
+        memory_limit_mb = memory_limit / (1024 * 1024)
+
+        print(f"memory usage {memory_stats_mb} / {memory_limit_mb}")
+
+        # FIX LATER
+        if (cpu_percentage + required_cpu <= 100) and (memory_stats_mb + required_memory <= memory_limit_mb):
+            print("There is space to work on task")
+            print()
+            return False
+        print()
     
-    command = f"docker update --memory={memory} --memory-swap={memory_swap} --cpuset-cpus={cpu} {server}"
-    subprocess.run(command.split())
-
-    return 0
-
-def get_random_server():
-    return random.choice(_servers)
-
-
-def _url0(client_id, s_id):
-    global url0
-    save_url = url0
-
-    with server_available:
-        while url0 is None:
-            server_available.wait()
-
-        url0 = None
-        print(f"client {client_id} task STARTS on {servers[s_id]}")
-
-        time.sleep(3)
-        # config_prediction impelemented here
-
-        change_docker_config(s_id, 1, "500MB", "600MB")
-
-        client_ops(client_id, url0)
-
-        print(f"client {client_id} task is COMPLETED on {servers[s_id]}")
-        url0 = save_url
-        server_available.notify()
-
-def _url1(client_id, s_id):
-    global url1
-    
-    save_url = url1
-
-    with server_available:
-        while url1 is None:
-            server_available.wait()
-
-        url1 = None
-        print(f"client {client_id} task STARTS on {servers[s_id]}")
-
-        time.sleep(3)
-        # config_prediction impelemented here
-
-        change_docker_config(s_id, 1, "500MB", "600MB")
-
-        client_ops(client_id, url1)
-
-        print(f"client {client_id} task is COMPLETED on {servers[s_id]}")
-        url1 = save_url
-        server_available.notify()
-
-def _url2(client_id, s_id):
-    global url2
-
-    save_url = url2
-
-    with server_available:
-        while url2 is None:
-            server_available.wait()
-
-        url2 = None
-        print(f"client {client_id} task STARTS on {servers[s_id]}")
-
-        time.sleep(3)
-        # config_prediction impelemented here
-
-        change_docker_config(s_id, 1, "500MB", "600MB")
-
-        client_ops(client_id, url2)
-
-        print(f"client {client_id} task is COMPLETED on {servers[s_id]}")
-        url2 = save_url
-        server_available.notify()
-
-def task_on_server2(client_id):
-    s_id, s_url = get_random_server()
-
-    if s_url == url0:
-        _url0(client_id, s_id)
-    elif s_url == url1:
-        _url1(client_id, s_id)
-    else:
-        _url2(client_id, s_id)
+    print("Launch the new container!!")
+    launch_new_container()
+    print(servers)
+    print()
+    print()
+    return True
 
 
-def task_on_server(client_id):
-    global task_in_servers, url0, url1, url2
-
-
-    s_id, s_url = get_random_server()
-    server_found = False
-    server_id = None
-    #print(client_id, task_in_servers)
-
-    with server_available:
-        while task_in_servers[s_id] is False:
-            server_available.wait()
-
-        '''
-        while not server_found:
-            for _id, avail in task_in_servers.items():
-                if avail:
-                    server_found = True
-                    server_id = _id
-                    task_in_servers[_id] = False
-                    print(client_id, " server found")
-                    break
-            if server_found:
-                break
-            server_available.wait()
-        '''
-        print(f"client {client_id} task STARTS on {servers[s_id]}")
-        task_in_servers[s_id] = False
-
-        time.sleep(3)
-        # config_prediction impelemented here
-
-        change_docker_config(s_id, 1, "500MB", "600MB")
-
-        client_ops(client_id, s_url)
-
-        task_in_servers[s_id] = True
-        print(f"client {client_id} task is COMPLETED on {servers[s_id]}")
-        server_available.notify_all()
-
+def test_autoscaling():
+    for i in range(0, 4):
+        if no_space_in_container():
+            launch_new_container()
 
 
 
@@ -387,19 +331,8 @@ def custom_interrupt_handler(signum, frame):
 
 
 if __name__ == "__main__":
-    clients = []
-    
-    run_all_servers(3)
-    # Set the custom handler for Ctrl+C (SIGINT)
-    signal.signal(signal.SIGINT, custom_interrupt_handler)
-
-    for i in range(NUM_CLIENTS):
-        t = threading.Thread(target=task_on_server, args=(i,))
-        clients.append(t)
-        t.start()
-
-    for t in clients:
-        t.join()
+    run_all_servers(1) 
+    test_autoscaling()
 
     
     '''
