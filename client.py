@@ -1,77 +1,101 @@
+import multiprocessing
 import requests
 import time
-import threading
-import json
-import argparse
+import random
+import multiprocessing
+import requests
+import time
+import random
+from hashring import HashRing
 
-# HOST, PORT = "127.0.0.1", 8000
-# BASE_URL = f"http://{HOST}:{PORT}"
-BASE_URL = "http://localhost:80"
-NUM_REQUESTS = 1000  # Number of requests to send per client
-NUM_CLIENTS = 10  # Number of concurrent clients
+BASE_URLS = ["http://127.0.0.1:8070", "http://127.0.0.1:8080", "http://127.0.0.1:8090"]
+# BASE_URLS = ['http://127.0.0.1:8080', 'http://127.0.0.1:8081']
+# BASE_URLS = ["http://127.0.0.1"]
+# BASE_URLS = ["http://127.0.0.1:80"]
 
-throughputs = []
-latencies = []
+session = requests.Session()
 
 
-def client_thread(client_id):
-    # Start time
+ring = HashRing(BASE_URLS)
+
+# 20, 50,
+batch_size = 20
+
+
+def kv_store_client_batch(operation, batch_kv):
+    # Determine which server to use based on the first key in the batch
+    server_url = ring.get_node(batch_kv[0])
+
+    if operation == "set":
+        kv_pairs = {key: f"value_for_{key}" for key in batch_kv}
+        session.put(f"{server_url}/store_batch", json=kv_pairs)
+    elif operation == "get":
+        session.get(f"{server_url}/retrieve_batch", json=batch_kv)
+    else:
+        raise ValueError("Invalid operation")
+
+
+def worker(num_operations, latencies_queue, operation, process_index):
+    batch_kv = []
+    for i in range(num_operations):
+        key = f"key{process_index}_{i}"
+        batch_kv.append(key)
+        if len(batch_kv) == batch_size:
+            start_time = time.time()
+            kv_store_client_batch(operation, batch_kv)
+            latency = time.time() - start_time
+            latencies_queue.put(latency)
+            batch_kv = []
+
+
+def benchmark(num_operations, num_processes):
+    manager = multiprocessing.Manager()
+    latencies_queue = manager.Queue()
+
+    set_processes = [
+        multiprocessing.Process(
+            target=worker, args=(num_operations, latencies_queue, "set", i)
+        )
+        for i in range(num_processes)
+    ]
+    get_processes = [
+        multiprocessing.Process(
+            target=worker, args=(num_operations, latencies_queue, "get", i)
+        )
+        for i in range(num_processes)
+    ]
+
     start_time = time.time()
 
-    for i in range(NUM_REQUESTS):
-        key = f"key-{client_id}-{i}"
-        value = f"value-{client_id}-{i}"
+    for p in set_processes:
+        p.start()
+    for p in set_processes:
+        p.join()
 
-        # PUT request
-        requests.put(f"{BASE_URL}/store", params={"key": key}, data={"value": value})
+    for p in get_processes:
+        p.start()
+    for p in get_processes:
+        p.join()
 
-        # GET request
-        requests.get(f"{BASE_URL}/retrieve", params={"key": key})
+    total_time = time.time() - start_time
+    total_operations = num_operations * num_processes * 2
+    total_latencies = []
 
-        # DEL request
-        requests.delete(f"{BASE_URL}/remove", params={"key": key})
+    while not latencies_queue.empty():
+        total_latencies.append(latencies_queue.get())
 
-    # End time
-    end_time = time.time()
-
-    elapsed_time = end_time - start_time
-    throughput = NUM_REQUESTS * 3 / elapsed_time  # Multiply by 3 for PUT, GET, DEL
-    throughputs.append(throughput)
-    latency = elapsed_time / (NUM_REQUESTS * 3)  # Average latency per request
-    latencies.append(latency)
-
-    print(
-        f"Client-{client_id} | Throughput: {throughput:.2f} req/s | Average Latency: {latency:.6f} seconds"
-    )
+    average_latency = sum(total_latencies) / len(total_latencies)
+    print(f"Total Latency: {sum(total_latencies):.2f} second")
+    print(f"Length of latencies: {len(total_latencies):.0f} latencies")
+    throughput = total_operations / total_time
+    print(f"Total Operation: {total_operations:.0f} operations")
+    print(f"Average Latency: {average_latency:.5f} seconds per operation")
+    print(f"Throughput: {throughput:.2f} operations per second")
+    print(f"Total Benchmark Time: {total_time:.2f} seconds")
+    print("\n")
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--title", type=str, default="key value store")
-    parser.add_argument("--filename", type=str, default="kv.json")
-
-    args = parser.parse_args()
-    title = args.title
-    filename = args.filename
-
-    print(f"Testing {title}.")
-
-    clients = []
-    for i in range(NUM_CLIENTS):
-        t = threading.Thread(target=client_thread, args=(i,))
-        clients.append(t)
-        t.start()
-
-    for t in clients:
-        t.join()
-
-    # write throughput and latency into a json file
-    json_data = {"throughput": throughputs, "latency": latencies}
-    with open("data/" + filename, "w") as f:
-        print("Writing data to", filename)
-        json.dump(json_data, f)
-
-    print("Overall Throughput: ", sum(throughputs))
-    print("Overall Latency: ", sum(latencies) / NUM_CLIENTS)
-
-    print("Testing completed.")
+    num_operations_per_process = 800
+    num_processes = 10
+    benchmark(num_operations_per_process, num_processes)
