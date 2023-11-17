@@ -1,4 +1,4 @@
-# Cloud-Computing-HW-2
+# Key-Value Store
 
 ### Intructions for Running the Program for Client-Side Consistent Hashing with Docker:
 
