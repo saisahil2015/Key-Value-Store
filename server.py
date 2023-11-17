@@ -6,8 +6,14 @@ from models import db, Key_value, Workload
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.exc import NoResultFound
 import json
+import threading
+import argparse
 
 app = Flask(__name__)
+
+# In-memory key-value store
+kv_store = {}
+lock = threading.Lock()
 
 # sqllite
 sqllite_uri = "sqlite:///" + os.path.abspath(os.path.curdir) + "/databases.db"
@@ -15,6 +21,7 @@ app.config["SQLALCHEMY_DATABASE_URI"] = sqllite_uri
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db.init_app(app)
+
 
 # load existing db otherwise create new db
 with app.app_context():
@@ -24,99 +31,52 @@ with app.app_context():
     except:
         db.create_all()
 
-# logging
-logging.basicConfig(
-    filename="app.log",
-    level=logging.DEBUG,
-    format="%(asctime)s  : %(message)s",
-)
+# # logging
+# logging.basicConfig(
+#     filename="app.log",
+#     level=logging.DEBUG,
+#     format="%(asctime)s  : %(message)s",
+# )
 
 
-@app.route("/retrieve", methods=["GET"])
-def get_value():
-    given_key = request.form["key"]
-    matched_key_value = Key_value.query.filter_by(key=given_key).first()
-
-    # find a given key in database
-    if matched_key_value:
-        message = f"The key [{given_key}] is found"
-        app.logger.info(message)
-        return (
-            jsonify(
-                {
-                    "status": "success",
-                    "value": matched_key_value.value,
-                    "message": message,
-                }
-            ),
-            200,
-        )
-
-    # not found
-    else:
-        message = f"The key [{given_key}] is not found"
-        app.logger.warning(message)
-        return jsonify({"status": "fail", "message": message}), 404
-
-
+# Endpoint to set the value for a key
 @app.route("/store", methods=["PUT"])
-def put_key():
-    new_key = request.form["key"]
+def set_value():
+    new_key = request.args.get("key")
     new_value = request.form["value"]
 
-    try:
-        # Locking the row if it exists to prevent concurrent modifications
-        row = Key_value.query.filter_by(key=new_key).with_for_update().first()
+    with lock:
+        if new_key in kv_store:
+            return jsonify(error="Key already exists"), 404
 
-        # if a given key already exists in the database
-        if row:
-            message = f"The key [{new_key}] already exists"
-            app.logger.warning(message)
-            return jsonify({"status": "fail", "message": message}), 404
+        kv_store[new_key] = new_value
+        return jsonify(success=True), 201
 
-        # a given key can be stored
+
+# Endpoint to get the value for a key
+@app.route("/retrieve", methods=["GET"])
+def get_value():
+    key = request.args.get("key")
+
+    with lock:
+        if key in kv_store:
+            value = kv_store[key]
+            return jsonify(value=value), 200
         else:
-            new_pair = Key_value(key=new_key, value=new_value)
-            db.session.add(new_pair)
-            db.session.commit()
-
-            message = f"The key [{new_key}] with the value [{new_value}] is stored"
-            app.logger.info(message)
-            return jsonify({"status": "success", "message": message}), 201
-
-    except IntegrityError:
-        db.session.rollback()
-        message = f"Failed to store the key [{new_key}] due to a concurrent operation. Please try again."
-        app.logger.error(message)
-        return jsonify({"status": "error", "message": message}), 500
+            return jsonify(error="Key not found"), 404
 
 
+# Endpoint to delete a key
 @app.route("/remove", methods=["DELETE"])
-def remove_key():
-    given_key = request.form["key"]
+def delete_key():
+    key = request.args.get("key")
 
-    try:
-        # Locking the row for deletion to prevent concurrent modifications
-        row = Key_value.query.filter_by(key=given_key).with_for_update().first()
-
-        if row:
-            db.session.delete(row)
-            db.session.commit()
-
-            message = f"The key [{given_key}] is removed"
-            app.logger.info(message)
-            return jsonify({"status": "success", "message": message}), 200
-
+    with lock:
+        if key in kv_store:
+            del kv_store[key]
+            return jsonify(success=True), 200
         else:
-            message = f"The key [{given_key}] is not found"
-            app.logger.warning(message)
-            return jsonify({"status": "fail", "message": message}), 404
-
-    except NoResultFound:
-        db.session.rollback()
-        message = f"Failed to delete the key [{given_key}] due to a concurrent operation. Please try again."
-        app.logger.error(message)
-        return jsonify({"status": "error", "message": message}), 500
+            return jsonify(error="Key not found"), 404
 
 
 @app.route("/metrics", methods=["POST"])
@@ -127,14 +87,11 @@ def store_metrics():
     data = request.get_json()
     try:
         new_metric = Workload(
-            client_id=data["client_id"],
             num_read=data["num_read"],
             num_write=data["num_write"],
             read_write_ratio=data["read_write_ratio"],
             cpu_usage=data["cpu_usage"],
             memory_usage=data["memory_usage"],
-            throughput=data["throughput"],
-            latency=data["latency"],
         )
         db.session.add(new_metric)
         db.session.commit()
