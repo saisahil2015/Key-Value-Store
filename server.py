@@ -1,216 +1,102 @@
-# PERSISTENT SERVER CODE
+from flask import Flask, jsonify, request
+import threading
+import logging
+import argparse
 
-# from flask import Flask, jsonify, request
-# import logging
-# import os
-# from flask_sqlalchemy import SQLAlchemy
-# from models import db, Key_value
-# from sqlalchemy.exc import IntegrityError
-# from sqlalchemy.orm.exc import NoResultFound
+app = Flask(__name__)
 
-# app = Flask(__name__)
+# Setup logging
+# logging.basicConfig(
+#     filename="/app/app.log",
+#     level=logging.DEBUG,
+#     format="%(asctime)s  : %(message)s",
+# )
 
-# # sqllite
-# sqllite_uri = "sqlite:///" + os.path.abspath(os.path.curdir) + "/key_values.db"
-# app.config["SQLALCHEMY_DATABASE_URI"] = sqllite_uri
-# app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-
-# db.init_app(app)
-
-# # load existing db otherwise create new db
-# with app.app_context():
-#     try:
-#         Key_value.query.all()
-#     except:
-#         db.create_all()
-
-# # logging
 # logging.basicConfig(
 #     filename="app.log",
 #     level=logging.DEBUG,
 #     format="%(asctime)s  : %(message)s",
 # )
 
-
-# @app.route("/retrieve", methods=["GET"])
-# def get_value():
-#     given_key = request.args.get("key")
-#     matched_key_value = Key_value.query.filter_by(key=given_key).first()
-
-#     # find a given key in database
-#     if matched_key_value:
-#         message = f"The key [{given_key}] is found"
-#         app.logger.info(message)
-#         return (
-#             jsonify(
-#                 {
-#                     "status": "success",
-#                     "value": matched_key_value.value,
-#                     "message": message,
-#                 }
-#             ),
-#             200,
-#         )
-
-#     # not found
-#     else:
-#         message = f"The key [{given_key}] is not found"
-#         app.logger.warning(message)
-#         return jsonify({"status": "fail", "message": message}), 404
+# In-memory key-value store
+kv_store = {}
+lock = threading.Lock()
 
 
-# @app.route("/store", methods=["PUT"])
-# def put_key():
-#     new_key = request.args.get("key")
-#     new_value = request.form["value"]
-
-#     try:
-#         # Locking the row if it exists to prevent concurrent modifications
-#         row = Key_value.query.filter_by(key=new_key).with_for_update().first()
-
-#         # if a given key already exists in the database
-#         if row:
-#             message = f"The key [{new_key}] already exists"
-#             app.logger.warning(message)
-#             return jsonify({"status": "fail", "message": message}), 404
-
-#         # a given key can be stored
-#         else:
-#             new_pair = Key_value(key=new_key, value=new_value)
-#             db.session.add(new_pair)
-#             db.session.commit()
-
-#             message = f"The key [{new_key}] with the value [{new_value}] is stored"
-#             app.logger.info(message)
-#             return jsonify({"status": "success", "message": message}), 201
-
-#     except IntegrityError:
-#         db.session.rollback()
-#         message = f"Failed to store the key [{new_key}] due to a concurrent operation. Please try again."
-#         app.logger.error(message)
-#         return jsonify({"status": "error", "message": message}), 500
-
-
-# @app.route("/remove", methods=["DELETE"])
-# def remove_key():
-#     given_key = request.args.get("key")
-
-#     try:
-#         # Locking the row for deletion to prevent concurrent modifications
-#         row = Key_value.query.filter_by(key=given_key).with_for_update().first()
-
-#         if row:
-#             db.session.delete(row)
-#             db.session.commit()
-
-#             message = f"The key [{given_key}] is removed"
-#             app.logger.info(message)
-#             return jsonify({"status": "success", "message": message}), 200
-
-#         else:
-#             message = f"The key [{given_key}] is not found"
-#             app.logger.warning(message)
-#             return jsonify({"status": "fail", "message": message}), 404
-
-#     except NoResultFound:
-#         db.session.rollback()
-#         message = f"Failed to delete the key [{given_key}] due to a concurrent operation. Please try again."
-#         app.logger.error(message)
-#         return jsonify({"status": "error", "message": message}), 500
-
-
-# if __name__ == "__main__":
-#     app.run(host="0.0.0.0", port=80, debug=True, threaded=True)
-
-
-# IN-MEMORY SERVER CODE
-from flask import Flask, jsonify, request
-import logging
-import threading
-import argparse
-
-app = Flask(__name__)
-
-# In-memory store
-key_values_store = {}
-store_lock = threading.Lock()
-
-
-@app.route("/retrieve", methods=["GET"])
-def get_value():
-    given_key = request.args.get("key")
-
-    with store_lock:
-        # find a given key in the in-memory store
-        if given_key in key_values_store:
-            value = key_values_store[given_key]
-            message = f"The key [{given_key}] is found with value [{value}]"
-            app.logger.info(message)
-            return (
-                jsonify({"status": "success", "value": value, "message": message}),
-                200,
-            )
-        else:
-            message = f"The key [{given_key}] is not found"
-            app.logger.warning(message)
-            return jsonify({"status": "fail", "message": message}), 404
-
-
+# Endpoint to set the value for a key
 @app.route("/store", methods=["PUT"])
-def put_key():
+def set_value():
     new_key = request.args.get("key")
     new_value = request.form["value"]
 
-    with store_lock:
-        # if a given key already exists in the in-memory store
-        if new_key in key_values_store:
-            message = f"The key [{new_key}] already exists"
-            app.logger.warning(message)
-            return jsonify({"status": "fail", "message": message}), 404
+    with lock:
+        if new_key in kv_store:
+            # app.logger.warning(f"Attempt to add an existing key: {new_key}")
+            return jsonify(error="Key already exists"), 409
 
-        # a given key can be stored
-        key_values_store[new_key] = new_value
-        message = f"The key [{new_key}] with the value [{new_value}] is stored"
-        app.logger.info(message)
-        return jsonify({"status": "success", "message": message}), 201
+        kv_store[new_key] = new_value
+        # app.logger.info(f"Key '{new_key}' added with value: {new_value}")
+        return jsonify(success=True), 201
 
 
-@app.route("/remove", methods=["DELETE"])
-def remove_key():
-    given_key = request.args.get("key")
+# Endpoint to get the value for a key
+@app.route("/retrieve", methods=["GET"])
+def get_value():
+    key = request.args.get("key")
 
-    with store_lock:
-        # if the key exists in the in-memory store, remove it
-        if given_key in key_values_store:
-            del key_values_store[given_key]
-            message = f"The key [{given_key}] is removed"
-            app.logger.info(message)
-            return jsonify({"status": "success", "message": message}), 200
+    with lock:
+        if key in kv_store:
+            value = kv_store[key]
+            # app.logger.info(f"Value retrieved for key '{key}': {value}")
+            return jsonify(value=value), 200
         else:
-            message = f"The key [{given_key}] is not found"
-            app.logger.warning(message)
-            return jsonify({"status": "fail", "message": message}), 404
+            # app.logger.warning(f"Key not found: {key}")
+            return jsonify(error="Key not found"), 404
+
+
+# Endpoint to delete a key
+@app.route("/remove", methods=["DELETE"])
+def delete_key():
+    key = request.args.get("key")
+
+    with lock:
+        if key in kv_store:
+            del kv_store[key]
+            # app.logger.info(f"Key '{key}' removed successfully")
+            return jsonify(success=True), 200
+        else:
+            # app.logger.warning(f"Attempt to remove non-existent key: {key}")
+            return jsonify(error="Key not found"), 404
+
+
+# Endpoint for batch storing key-value pairs
+@app.route("/store_batch", methods=["PUT"])
+def set_batch_value():
+    kv_pairs = request.json
+    with lock:
+        for key, value in kv_pairs.items():
+            kv_store[key] = value
+    #         app.logger.info(f"Stored key: {key} with value: {value}")
+    # app.logger.info("Batch store operation completed")
+    return jsonify(success=True), 201
+
+
+# Endpoint for batch retrieving values by keys
+@app.route("/retrieve_batch", methods=["GET"])
+def get_batch_value():
+    keys = request.json
+    with lock:
+        values = {key: kv_store.get(key) for key in keys}
+        # missing_keys = [key for key in keys if key not in kv_store]
+        # app.logger.info(f"Retrieved batch values for keys: {list(values.keys())}")
+        # if missing_keys:
+        #     app.logger.warning(f"Keys not found in batch retrieve: {missing_keys}")
+    return jsonify(values), 200
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--port", type=int, default=8080)
-    parser.add_argument("--log", type=str, default="app.log")
-
-    args = parser.parse_args()
-    port = args.port
-    log_filename = args.log
-
-    # logging
-    logging.basicConfig(
-        filename=log_filename,
-        level=logging.DEBUG,
-        format="%(asctime)s  : %(message)s",
-    )
-
-    app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
-    # app.run(host="0.0.0.0", port=80, debug=True)
+    app.run(host="0.0.0.0", port=80, debug=True, threaded=True)
 
 
 # MAKE SURE TO COMBINE IN-MEMORY WITH PERSISTENT DATABASE BASED ON DYNAMODB AND INFICACHE WHERE PERISSTENT USES ONLY WHEN ISSUE/SERVER DOWN OTHERWISE SHOULDN'T AFFECT THE
-# PERFORMANCE
+# PERFORMANCE and can refer to the persistent database code in the old_kv_backup branch

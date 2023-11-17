@@ -9,10 +9,7 @@ flask-sqlalchemy = "*"
 requests = "*"
 matplotlib = "*"
 gunicorn = "*"
-docker = "*"
-consistent-hash = "*"
-memcache = "*"
-hashring = "*"
+pymemcache = "*"
 
 [dev-packages]
 
