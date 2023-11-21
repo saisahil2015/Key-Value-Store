@@ -1,16 +1,15 @@
-import requests
-import random
-import string
 import subprocess
 import docker
+import random
 from hashring import HashRing
-import time
+import string
+import requests
 
 # globals
 HOST = "localhost"
 combinaitons = ["RI", "WI", "B"]
 
-available_ports = [port for port in range(8080, 8091)]
+available_ports = [port for port in range(8070, 8091)]
 servers = {}                            # container_id: url
 available_servers = []                  # url
 ring = HashRing(available_servers)      # hash ring
@@ -18,23 +17,13 @@ ring = HashRing(available_servers)      # hash ring
 # docker client
 docker_client = docker.from_env()
 
-def wait_container_created(container):
-    while True:
-        container.reload()
-        if container.status == "running":
-            print("container is running")
-            break
-        time.sleep(1)
-
 def launch_new_container():
     current_port = available_ports.pop(0)
     url = f"http://{HOST}:{current_port}"
 
-    container = docker_client.containers.run("docker-kv-store", detach=True, ports={80: current_port})
-    wait_container_created(container)
-
-    container_id = container.id
-    print(container_id)
+    command = f"docker run -d -p {current_port}:80 docker-kv-store"
+    result = subprocess.run(command.split(), stdout=subprocess.PIPE)
+    container_id = result.stdout.decode('utf-8')
 
     servers[container_id] = url
     available_servers.append(url)
@@ -45,15 +34,6 @@ def launch_new_container():
     ring = HashRing(available_servers)
 
     # TODO: redistribute the key value pairs among the new hash ring
-
-# TODO: need one that remove just one container (remove container when finish hadnling workload)
-def remove_all_containers():
-    print("terminate and remove all containers...")
-    for docker_id,_ in servers.items():
-        stop_command = f"docker stop {docker_id}"
-        rm_command = f"docker remove {docker_id}"
-        subprocess.run(stop_command.split())
-        subprocess.run(rm_command.split())
 
 def get_resource_usage_prediction(num_read, num_write_, rw_ratio):
     # output: cpu, memory usage prediction
@@ -109,7 +89,11 @@ def no_space_in_container(num_write, num_read, rw_ratio):
             return False
         print()
     
-    print("Unable to handle workload, launch the new container!!")
+    print("Launch the new container!!")
+    launch_new_container()
+    print(servers)
+    print()
+    print()
     return True
 
 def generate_random_string(
@@ -145,17 +129,17 @@ def workload(workload_id):
 
     # predict the container cpu and memory usage
     # launch new container if needed
-    if no_space_in_container(NUM_WRITE_REQUESTS, NUM_READ_REQUESTS, RW_RATIO):
-        launch_new_container()
+    # if no_space_in_container(NUM_WRITE_REQUESTS, NUM_READ_REQUESTS, RW_RATIO):
+    #     launch_new_container()
 
     # handle workload
-    print(f"handling workload {workload_id} ...")
+    print("handling workload...")
     for i in range(NUM_WRITE_REQUESTS):
         key = f"key-{workload_id}-{i}"
         value = generate_random_string(random.randint(1, 100))
 
         url = ring.get_node(key)
-        print(url)
+        print('url: ', url)
         requests.put(f"{url}/store", params={"key": key}, data={"value": value})
 
     for j in range(NUM_READ_REQUESTS):
@@ -163,13 +147,22 @@ def workload(workload_id):
         
         url = ring.get_node(key)
         requests.get(f"{url}/retrieve", params={"key": key})
+    pass
 
-if __name__ == "__main__":
+def remove_all_containers():
+    print("terminate and remove all containers...")
+    for docker_id,_ in servers.items():
+        stop_command = f"docker stop {docker_id}"
+        rm_command = f"docker remove {docker_id}"
+        subprocess.run(stop_command.split())
+        subprocess.run(rm_command.split())
+
+if __name__ == '__main__':
     # run one container
     launch_new_container()
 
     # workload
-    for i in range(10):
+    for i in range(1):
         workload(i)
 
     # remove all containers

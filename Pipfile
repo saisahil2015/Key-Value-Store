@@ -6,12 +6,13 @@ name = "pypi"
 [packages]
 flask = "*"
 flask-sqlalchemy = "*"
-requests = "*"
 memory-profiler = "*"
 snakeviz = "*"
 numpy = "*"
 scikit-learn = "*"
+hashring = "*"
 docker = "*"
+requests = "*"
 
 [dev-packages]
 

@@ -13,10 +13,10 @@ from queue import Queue
 import docker
 
 
-HOST, PORT = "127.0.0.1", 80
+HOST, PORT = "127.0.0.1", 8070
 BASE_URL = f"http://{HOST}:{PORT}"
 # NUM_REQUESTS = 1000  # Number of requests to send per client
-NUM_CLIENTS = 500  # 10 # Number of concurrent clients
+NUM_CLIENTS = 1  # 10 # Number of concurrent clients
 
 throughputs = []
 latencies = []
@@ -171,12 +171,6 @@ def client_ops(client_id):
 
     return NUM_READ_REQUESTS, NUM_WRITE_REQUESTS, throughput, latency
 
-def docker_client_thread():
-    # launch a container
-    # get cpu and memory usage before handling requests
-    # send requests to the container
-    # get cpu and memory usage after handling requests
-    # write into workload table
 
 
 if __name__ == "__main__":

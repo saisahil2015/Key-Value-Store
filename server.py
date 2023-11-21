@@ -194,7 +194,7 @@ def remove_key():
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--port", type=int, default=8080)
+    parser.add_argument("--port", type=int, default=80)
     parser.add_argument("--log", type=str, default="app.log")
 
     args = parser.parse_args()
