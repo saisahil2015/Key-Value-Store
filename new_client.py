@@ -1,179 +1,136 @@
-# multi-threaded approach
-
-# import subprocess
-# import time
-# import multiprocessing
 # import requests
+# import time
+# import subprocess
 # import threading
+# import random
+# import string
+# import docker
 
 # HOST = "127.0.0.1"
-# last_used_port = multiprocessing.Value(
-#     "i", 8069
-# )  # Starting from 8069 so the first used port is 8070
+# PORT = 80
+# BASE_URL = f"http://{HOST}:{PORT}"
+# NUM_CLIENTS = 10
+# combinations = ["RI", "WI", "B"]
+
+# # Use the Docker Python client for better container management
+# docker_client = docker.from_env()
 
 
-# def get_next_port():
-#     with last_used_port.get_lock():  # Ensures thread safety
-#         last_used_port.value += 1
-#         return last_used_port.value
+# def generate_random_string(length, seed=None):
+#     random.seed(seed)
+#     return "".join(random.choices(string.ascii_letters + string.digits, k=length))
 
 
-# def start_docker_container(container_id):
-#     port = get_next_port()
-#     # print("Port got: ", port)
-#     command = f"docker run -d -p {port}:80 docker-kv-store"
-#     subprocess.run(command.split(), stdout=subprocess.PIPE)
-#     return container_id, port  # Return both container_id and port
-
-
-# def stop_docker_container_and_collect_stats(container_id, max_stats):
-#     subprocess.call(["docker", "stop", container_id])
-#     subprocess.call(["docker", "rm", container_id])
-#     print(
-#         f"Container {container_id} stats - CPU: {max_stats[container_id]['cpu']}%, Memory: {max_stats[container_id]['memory']}MiB"
+# def start_docker_container(client_id):
+#     container_name = f"client_container_{client_id}"
+#     container = docker_client.containers.run(
+#         "docker-kv-store",
+#         detach=True,
+#         name=container_name,
+#         ports={"80/tcp": PORT},
+#         auto_remove=True,
 #     )
+#     return container
 
 
-# def monitor_container_stats(container_id, max_stats):
+# def monitor_container_stats(container, max_stats):
 #     while True:
 #         try:
-#             stats_output = (
-#                 subprocess.check_output(
-#                     [
-#                         "docker",
-#                         "stats",
-#                         "--no-stream",
-#                         "--format",
-#                         "{{.CPUPerc}} {{.MemUsage}}",
-#                         container_id,
-#                     ]
-#                 )
-#                 .decode()
-#                 .strip()
-#             )
-#             cpu_usage, memory_usage = stats_output.split(" ")
-#             cpu_usage = float(cpu_usage.replace("%", ""))
-#             memory_usage_value, _ = memory_usage.split("/")
-#             memory_usage = float(
-#                 memory_usage_value.replace("MiB", "").replace("GiB", "").strip()
-#             )
-
-#             if container_id not in max_stats:
-#                 max_stats[container_id] = {"cpu": 0, "memory": 0}
-#             max_stats[container_id]["cpu"] = max(
-#                 max_stats[container_id]["cpu"], cpu_usage
-#             )
-#             max_stats[container_id]["memory"] = max(
-#                 max_stats[container_id]["memory"], memory_usage
-#             )
-#         except subprocess.CalledProcessError:
-#             break  # Container stopped
-#         time.sleep(1)  # Poll every second
+#             stats = container.stats(stream=False)
+#             cpu_usage = stats["cpu_stats"]["cpu_usage"]["total_usage"]
+#             memory_usage = stats["memory_stats"]["usage"]
+#             max_stats[container.id] = {"cpu": cpu_usage, "memory": memory_usage}
+#         except docker.errors.NotFound:
+#             break
+#         time.sleep(1)
 
 
-# def kv_store_client(operation, key, port, value=None):
-#     server_url = f"http://{HOST}:{port}"
-#     # print(f"Operation: {operation}, Key: {key}, Port: {port}")
-
-#     start_time = time.time()
-
-#     try:
-#         if operation == "set":
-#             requests.put(
-#                 f"{server_url}/store", params={"key": key}, data={"value": value}
-#             )
-#         elif operation == "get":
-#             requests.get(f"{server_url}/retrieve", params={"key": key})
-#         elif operation == "del":
-#             requests.get(f"{server_url}/remove", params={"key": key})
-#         else:
-#             raise ValueError("Invalid operation")
-#         return time.time() - start_time
-#     except Exception as e:
-#         print(f"Error performing {operation} on {key}: {e}")
-#         return None
+# def wait_container_created(container):
+#     while True:
+#         container.reload()
+#         if container.status == "running":
+#             print("container is running")
+#             break
+#         time.sleep(1)
 
 
-# def worker(num_operations, latencies_queue, process_index, max_stats):
-#     container_id, port = start_docker_container(f"client_{process_index}")
-#     time.sleep(5)
-#     max_stats[container_id] = {"cpu": 0, "memory": 0}
-#     monitor_thread = threading.Thread(
-#         target=monitor_container_stats, args=(container_id, max_stats)
+# def client_ops(client_id, max_stats):
+#     container = start_docker_container(client_id)
+#     wait_container_created(container)
+
+#     stats_thread = threading.Thread(
+#         target=monitor_container_stats, args=(container, max_stats)
 #     )
-#     monitor_thread.start()
+#     stats_thread.start()
 
-#     total_latency = 0
-#     for operation in ["set", "get", "del"]:
-#         for i in range(num_operations):
-#             key = f"key_{process_index}_{operation}_{i}"
-#             value = f"value_{process_index}_{i}" if operation == "set" else None
-#             latency = kv_store_client(operation, key, port, value)
-#             if latency is not None:
-#                 latencies_queue.put(latency)
-#                 total_latency += latency
+#     combination = random.choice(combinations)
+#     NUM_REQUESTS = random.randint(1, 100)
+#     NUM_WRITE_REQUESTS, NUM_READ_REQUESTS = 0, 0
 
-#     monitor_thread.join()
-#     # print(
-#     #     f"Container {container_id} stats - CPU: {max_stats[container_id]['cpu']}%, Memory: {max_stats[container_id]['memory']}MiB"
-#     # )
-#     stop_docker_container_and_collect_stats(container_id, max_stats)
-#     return total_latency / (num_operations * 3)  # Average latency
+#     if combination == "RI":
+#         NUM_READ_REQUESTS = round(NUM_REQUESTS * 0.9)
+#         NUM_WRITE_REQUESTS = NUM_REQUESTS - NUM_READ_REQUESTS
+#     elif combination == "WI":
+#         NUM_READ_REQUESTS = round(NUM_REQUESTS * 0.1)
+#         NUM_WRITE_REQUESTS = NUM_REQUESTS - NUM_READ_REQUESTS
+#     elif combination == "B":
+#         NUM_READ_REQUESTS = round(NUM_REQUESTS * 0.5)
+#         NUM_WRITE_REQUESTS = NUM_REQUESTS - NUM_READ_REQUESTS
+
+#     for i in range(NUM_WRITE_REQUESTS):
+#         key, value = generate_random_string(
+#             10, f"key-{client_id}-{i}"
+#         ), generate_random_string(10)
+#         requests.put(f"{BASE_URL}/store", data={"key": key, "value": value})
+#     for j in range(NUM_READ_REQUESTS):
+#         key = generate_random_string(10, f"key-{client_id}-{j}")
+#         requests.get(f"{BASE_URL}/retrieve", data={"key": key})
+
+#     stats_thread.join()
+#     container.stop()
+
+#     cpu_usage, memory_usage = max_stats[container.id].values()
+#     print(f"Client-{client_id} CPU Usage: {cpu_usage}, Memory Usage: {memory_usage}")
+
+#     METRICS_URL = f"http://{HOST}:90"
+
+#     # Send metrics to server
+#     metrics = {
+#         "num_reads": NUM_READ_REQUESTS,
+#         "num_writes": NUM_WRITE_REQUESTS,
+#         "cpu_usage": cpu_usage,
+#         "memory_used": memory_usage,
+#     }
+#     response = requests.post(f"{METRICS_URL}/metrics", json=metrics)
+#     if response.status_code != 201:
+#         print(f"Client-{client_id} Error sending metrics: {response.text}")
 
 
-# def benchmark(num_operations, num_processes, max_stats):
-#     latencies_queue = multiprocessing.Queue()
-#     processes = []
-#     for i in range(num_processes):
-#         p = multiprocessing.Process(
-#             target=worker, args=(num_operations, latencies_queue, i, max_stats)
-#         )
-#         processes.append(p)
-#         p.start()
-
-#     for p in processes:
-#         p.join()
-
-#     total_latency = 0
-#     while not latencies_queue.empty():
-#         total_latency += latencies_queue.get()
-
-#     return total_latency / (
-#         num_operations * num_processes * 3
-#     )  # Overall average latency
+# def run_clients():
+#     max_stats = {}
+#     for client_id in range(NUM_CLIENTS):
+#         client_ops(client_id, max_stats)
 
 
 # if __name__ == "__main__":
-#     # print("Hello")
-#     num_operations = 2  # Adjust as needed
-#     num_processes = 5  # Adjust as needed
-#     max_stats = multiprocessing.Manager().dict()
+#     run_clients()
 
-#     avg_latency = benchmark(num_operations, num_processes, max_stats)
-#     print(f"Average Latency: {avg_latency:.5f} seconds")
-
-
-# Single threaded approach
 
 import requests
 import time
-import subprocess
 import threading
 import random
 import string
+import docker
 
-HOST, PORT = "127.0.0.1", 80
-BASE_URL = f"http://{HOST}:{PORT}"
-NUM_CLIENTS = 10  # Number of clients
+HOST = "127.0.0.1"
+NUM_CLIENTS = 10
+combinations = ["RI", "WI", "B"]
+docker_client = docker.from_env()
 
-
-combinations = [
-    "RI",
-    "WI",
-    "B",
-]  # for each case, have varied sizes of keys/values to have large/small keys/values
-
-writeOps = ["Put", "Delete"]
+# Define a range of available ports
+available_ports = [port for port in range(8070, 9070)]
+servers = {}  # Mapping of container ID to URL
 
 
 def generate_random_string(length, seed=None):
@@ -182,126 +139,203 @@ def generate_random_string(length, seed=None):
 
 
 def start_docker_container(client_id):
-    # command = f"docker run -d -p {PORT} docker-kv-store"
     container_name = f"client_container_{client_id}"
-    command = f"docker run -d --name {container_name} -p 8070:{PORT} docker-kv-store"
-    subprocess.run(command, shell=True)
-    return container_name
+
+    if available_ports:
+        port = available_ports.pop(0)
+    else:
+        raise Exception("No available ports left")
+
+    container = docker_client.containers.run(
+        "docker-kv-store",
+        detach=True,
+        name=container_name,
+        ports={"80/tcp": port},
+        auto_remove=True,
+    )
+    servers[container.id] = f"http://{HOST}:{port}"
+    return container
 
 
-def monitor_container_stats(container_name, max_stats):
+# def monitor_container_stats(container, max_stats, stop_thread):
+#     while True:
+#         if stop_thread.is_set():
+#             # print("Stopping monitoring thread for container", container.id)
+#             break
+#         try:
+#             stats = container.stats(stream=False)
+#             cpu_percent = 0.0
+#             cpu_delta = float(stats["cpu_stats"]["cpu_usage"]["total_usage"]) - float(
+#                 stats["precpu_stats"]["cpu_usage"]["total_usage"]
+#             )
+#             system_delta = float(stats["cpu_stats"]["system_cpu_usage"]) - float(
+#                 stats["precpu_stats"]["system_cpu_usage"]
+#             )
+#             if system_delta > 0.0:
+#                 cpu_percent = cpu_delta / system_delta * 100.0
+#             # cpu_usage = stats["cpu_stats"]["cpu_usage"]["total_usage"]
+#             # memory_usage = stats["memory_stats"]["usage"]
+#             memory_stats = stats["memory_stats"]["usage"]
+#             memory_stats_mb = memory_stats / (1024 * 1024)
+#             max_stats[container.id] = {"cpu": cpu_percent, "memory": memory_stats_mb}
+#         except docker.errors.NotFound:
+#             print("Container not found, stopping monitoring thread", container.id)
+#             break
+#         except Exception as e:
+#             print("Exception in monitoring thread for container", container.id, ":", e)
+#             break
+#         time.sleep(0.02)
+
+
+def monitor_container_stats(container, max_stats, stop_thread):
+    max_cpu = 0
+    max_memory = 0
     while True:
+        if stop_thread.is_set():
+            # print("Stopping monitoring thread for container", container.id)
+            break
         try:
-            stats_output = (
-                subprocess.check_output(
-                    f"docker stats --no-stream --format '{{{{.CPUPerc}}}} {{{{.MemUsage}}}}' {container_name}",
-                    shell=True,
-                )
-                .decode()
-                .strip()
+            stats = container.stats(stream=False)
+            cpu_delta = float(stats["cpu_stats"]["cpu_usage"]["total_usage"]) - float(
+                stats["precpu_stats"]["cpu_usage"]["total_usage"]
             )
-
-            # Split the stats output
-            cpu_usage_str, memory_usage_str = stats_output.split(" ")
-            cpu_usage = float(cpu_usage_str.replace("%", ""))
-
-            # Extract actual memory usage (before the slash)
-            memory_usage_value = (
-                memory_usage_str.split("/")[0].replace("MiB", "").strip()
+            system_delta = float(stats["cpu_stats"]["system_cpu_usage"]) - float(
+                stats["precpu_stats"]["system_cpu_usage"]
             )
-            memory_usage = float(memory_usage_value)
+            if system_delta > 0.0:
+                cpu_percent = cpu_delta / system_delta * 100.0
+                max_cpu = max(max_cpu, cpu_percent)
+            memory_usage = stats["memory_stats"]["usage"] / (
+                1024 * 1024
+            )  # Convert to MB
+            max_memory = max(max_memory, memory_usage)
+        except docker.errors.NotFound:
+            print("Container not found, stopping monitoring thread", container.id)
+            break
+        except Exception as e:
+            print("Exception in monitoring thread for container", container.id, ":", e)
+            break
+        time.sleep(0.02)
 
-            # Update max stats
-            max_stats[container_name] = {
-                "cpu": max(max_stats.get(container_name, {}).get("cpu", 0), cpu_usage),
-                "memory": max(
-                    max_stats.get(container_name, {}).get("memory", 0), memory_usage
-                ),
-            }
-        except subprocess.CalledProcessError:
-            break  # Container stopped
-        except ValueError as e:
-            print(f"Error parsing stats: {e}")
-        time.sleep(1)  # Poll every second
+    max_stats[container.id] = {"cpu": max_cpu, "memory": max_memory}
 
 
-def stop_docker_container_and_collect_stats(container_name):
-    subprocess.run(f"docker stop {container_name}", shell=True)
-    subprocess.run(f"docker rm {container_name}", shell=True)
+# NOTE
+"""
+noticed that just before the container ends the cpu usage peaks but i think we shouldn't capture that as it's more to do due to the shutdown of the container
+and not representative of the workload
+
+can add more metrics after first iteration of testing
+
+"""
+
+
+def wait_container_created(container):
+    while True:
+        container.reload()
+        if container.status == "running":
+            # print("container is running")
+            break
+        time.sleep(1)
 
 
 def client_ops(client_id, max_stats):
-    container_name = start_docker_container(client_id)
+    container = start_docker_container(client_id)
+    # wait_container_created(container)
+
+    stop_thread = threading.Event()
     stats_thread = threading.Thread(
-        target=monitor_container_stats, args=(container_name, max_stats)
+        target=monitor_container_stats, args=(container, max_stats, stop_thread)
     )
     stats_thread.start()
 
+    server_url = servers[container.id]
+    # print("Server url: ", server_url)
     combination = random.choice(combinations)
-
-    NUM_REQUESTS = random.randint(1, 100)  # Can increase this to max
-
-    NUM_WRITE_REQUESTS = 0
-    NUM_READ_REQUESTS = 0
+    NUM_REQUESTS = random.randint(1, 100)
+    NUM_WRITE_REQUESTS, NUM_READ_REQUESTS = 0, 0
 
     if combination == "RI":
-        NUM_READ_REQUESTS = round((NUM_REQUESTS * 0.9))
+        NUM_READ_REQUESTS = round(NUM_REQUESTS * 0.9)
         NUM_WRITE_REQUESTS = NUM_REQUESTS - NUM_READ_REQUESTS
-
     elif combination == "WI":
         NUM_READ_REQUESTS = round(NUM_REQUESTS * 0.1)
         NUM_WRITE_REQUESTS = NUM_REQUESTS - NUM_READ_REQUESTS
-
     elif combination == "B":
         NUM_READ_REQUESTS = round(NUM_REQUESTS * 0.5)
         NUM_WRITE_REQUESTS = NUM_REQUESTS - NUM_READ_REQUESTS
 
+    time.sleep(5)  # helped resolved errors
+
+    written_keys = []
+
     for i in range(NUM_WRITE_REQUESTS):
         seed = f"key-{client_id}-{i}"
-        key = generate_random_string(
-            random.randint(1, 100), seed
-        )  # Can change this and increase the possible values
-        # writeRequest = random.choice(writeOps)
-        # print("Ops: ", writeRequest)
-        # writeRequest = "PUT"
-
-        # print("Check PUT:")
-
-        # if writeRequest == "PUT":
-        # print("write")
-        value = generate_random_string(random.randint(1, 100))
-        requests.put(f"{BASE_URL}/store", data={"key": key, "value": value})
-        # else:
-        #     print("delete")
-        #     requests.delete(f"{BASE_URL}/remove", data={"key": key})
-
-    for j in range(NUM_READ_REQUESTS):
-        # print("CHECK Retrive")
-        seed = f"key-{client_id}-{j}"
         key = generate_random_string(random.randint(1, 100), seed)
-        requests.get(f"{BASE_URL}/retrieve", data={"key": key})
+        value = generate_random_string(random.randint(1, 100))
+        # print(f"Put checkpoint - Server URL: {server_url}, Key: {key}, Value: {value}")
+        try:
+            response = requests.put(
+                f"{server_url}/store", params={"key": key}, data={"value": value}
+            )
+            # print(f"PUT response: {response.status_code}, {response.text}")
+            written_keys.append(key)
+        except Exception as e:
+            print(f"Error during PUT request: {e}")
 
-    stats_thread.join()
-    stop_docker_container_and_collect_stats(container_name)
+    FOUND_REQUESTS = random.randint(1, NUM_WRITE_REQUESTS)
+    NOTFOUND_REQUESTS = NUM_WRITE_REQUESTS - FOUND_REQUESTS
 
-    cpu_usage, memory_usage = max_stats[container_name].values()
+    for j in range(len(written_keys[:FOUND_REQUESTS])):
+        # print(f"Get checkpoint - Server URL: {server_url}, Key: {written_keys[j]}")
+        try:
+            response = requests.get(
+                f"{server_url}/retrieve", params={"key": written_keys[j]}
+            )
+            # print(f"GET response: {response.status_code}, {response.text}")
+        except Exception as e:
+            print(f"Error during GET request: {e}")
 
-    print("Cpu usage: ", cpu_usage, "Memory_usage: ", memory_usage)
+    for _ in range(NOTFOUND_REQUESTS):
+        key = generate_random_string(random.randint(1, 100))
+        # print(f"Get checkpoint - Server URL: {server_url}, Key: {key}")
+        try:
+            response = requests.get(f"{server_url}/retrieve", params={"key": key})
+            # print(f"GET response: {response.status_code}, {response.text}")
+        except Exception as e:
+            print(f"Error during GET request: {e}")
 
+    # print("Checkpoint")
+    try:
+        # print("Joining stats checkpoint")
+        stop_thread.set()
+        stats_thread.join()
+    except Exception as e:
+        print(f"Error joinging the stats thread: {e}")
+    try:
+        # print("Stopping container checkpoint")
+        container.stop()
+    except Exception as e:
+        print(f"Error stopping the container: {e}")
+
+    # print("Container stopped")
+
+    max_cpu_usage, max_memory_usage = max_stats[container.id].values()
+    print(
+        f"Client-{client_id} Num Read: {NUM_READ_REQUESTS} Num Write {NUM_WRITE_REQUESTS} Read-Write-Ratio: {NUM_READ_REQUESTS/NUM_WRITE_REQUESTS} Max CPU Usage: {max_cpu_usage}, Max Memory Usage: {max_memory_usage}"
+    )
+
+    METRICS_URL = f"http://{HOST}:90"
     metrics = {
         "num_reads": NUM_READ_REQUESTS,
         "num_writes": NUM_WRITE_REQUESTS,
         "read_write_ratio": NUM_READ_REQUESTS / NUM_WRITE_REQUESTS,
-        "cpu_usage": cpu_usage,
-        "max_memory_used": memory_usage,
+        "max_cpu_usage": max_cpu_usage,
+        "max_memory_usage": max_memory_usage,
     }
-
-    METRICS_URL = f"http://{HOST}:{90}"
     response = requests.post(f"{METRICS_URL}/metrics", json=metrics)
-    if response.status_code == 201:
-        print(f"Client-{client_id} | Metrics successfully sent to the server.")
-    else:
-        print(f"Client-{client_id} | Failed to send metrics to server: {response.text}")
+    if response.status_code != 201:
+        print(f"Client-{client_id} Error sending metrics: {response.text}")
 
 
 def run_clients():
@@ -312,3 +346,6 @@ def run_clients():
 
 if __name__ == "__main__":
     run_clients()
+
+
+# curl -X PUT http://127.0.0.1:8070/store -d "key=myKey&value=myValue"

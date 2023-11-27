@@ -47,11 +47,11 @@ def store_metrics():
     data = request.get_json()
     try:
         new_metric = Workload(
-            num_read=data["num_read"],
-            num_write=data["num_write"],
+            num_read=data["num_reads"],
+            num_write=data["num_writes"],
             read_write_ratio=data["read_write_ratio"],
-            max_cpu_used=data["max_cpu_used"],
-            max_memory_used=data["max_memory_used"],
+            max_cpu_usage=data["max_cpu_usage"],
+            max_memory_usage=data["max_memory_usage"],
         )
         db.session.add(new_metric)
         db.session.commit()
