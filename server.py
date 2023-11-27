@@ -126,70 +126,55 @@
 # IN-MEMORY SERVER CODE
 from flask import Flask, jsonify, request
 import logging
+import os
 import threading
 import argparse
 
 app = Flask(__name__)
 
-# In-memory store
-key_values_store = {}
-store_lock = threading.Lock()
+# In-memory key-value store
+kv_store = {}
+lock = threading.Lock()
 
 
-@app.route("/retrieve", methods=["GET"])
-def get_value():
-    given_key = request.args.get("key")
-
-    with store_lock:
-        # find a given key in the in-memory store
-        if given_key in key_values_store:
-            value = key_values_store[given_key]
-            message = f"The key [{given_key}] is found with value [{value}]"
-            app.logger.info(message)
-            return (
-                jsonify({"status": "success", "value": value, "message": message}),
-                200,
-            )
-        else:
-            message = f"The key [{given_key}] is not found"
-            app.logger.warning(message)
-            return jsonify({"status": "fail", "message": message}), 404
-
-
+# Endpoint to set the value for a key
 @app.route("/store", methods=["PUT"])
-def put_key():
+def set_value():
     new_key = request.args.get("key")
     new_value = request.form["value"]
 
-    with store_lock:
-        # if a given key already exists in the in-memory store
-        if new_key in key_values_store:
-            message = f"The key [{new_key}] already exists"
-            app.logger.warning(message)
-            return jsonify({"status": "fail", "message": message}), 404
+    with lock:
+        if new_key in kv_store:
+            return jsonify(error="Key already exists"), 404
 
-        # a given key can be stored
-        key_values_store[new_key] = new_value
-        message = f"The key [{new_key}] with the value [{new_value}] is stored"
-        app.logger.info(message)
-        return jsonify({"status": "success", "message": message}), 201
+        kv_store[new_key] = new_value
+        return jsonify(success=True), 201
 
 
-@app.route("/remove", methods=["DELETE"])
-def remove_key():
-    given_key = request.args.get("key")
+# Endpoint to get the value for a key
+@app.route("/retrieve", methods=["GET"])
+def get_value():
+    key = request.args.get("key")
 
-    with store_lock:
-        # if the key exists in the in-memory store, remove it
-        if given_key in key_values_store:
-            del key_values_store[given_key]
-            message = f"The key [{given_key}] is removed"
-            app.logger.info(message)
-            return jsonify({"status": "success", "message": message}), 200
+    with lock:
+        if key in kv_store:
+            value = kv_store[key]
+            return jsonify(value=value), 200
         else:
-            message = f"The key [{given_key}] is not found"
-            app.logger.warning(message)
-            return jsonify({"status": "fail", "message": message}), 404
+            return jsonify(error="Key not found"), 404
+
+
+# Endpoint to delete a key
+@app.route("/remove", methods=["DELETE"])
+def delete_key():
+    key = request.args.get("key")
+
+    with lock:
+        if key in kv_store:
+            del kv_store[key]
+            return jsonify(success=True), 200
+        else:
+            return jsonify(error="Key not found"), 404
 
 
 if __name__ == "__main__":
