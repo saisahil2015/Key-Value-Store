@@ -4,8 +4,8 @@ from sklearn.metrics import mean_squared_error, mean_absolute_error
 def read_csv(file_name='data.csv'):
     data = np.loadtxt(file_name, delimiter=',', skiprows=1)
 
-    # remove first and second columns
-    data = np.delete(data, [0, 1], axis=1)
+    # remove first column
+    data = np.delete(data, [0], axis=1)
 
     # split the data into features and labels
     X = data[:, :3]

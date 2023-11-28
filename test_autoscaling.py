@@ -1,14 +1,16 @@
 import requests
 import random
-import string
 import subprocess
 import docker
 from hashring import HashRing
 import time
+import joblib
 
 # globals
 HOST = "localhost"
 combinaitons = ["RI", "WI", "B"]
+NUM_CLIENTS = 10
+NUM_REQUESTS = 100
 
 available_ports = [port for port in range(8080, 8091)]
 servers = {}                            # container_id: url
@@ -18,20 +20,12 @@ ring = HashRing(available_servers)      # hash ring
 # docker client
 docker_client = docker.from_env()
 
-def wait_container_created(container):
-    while True:
-        container.reload()
-        if container.status == "running":
-            print("container is running")
-            break
-        time.sleep(1)
-
 def launch_new_container():
     current_port = available_ports.pop(0)
     url = f"http://{HOST}:{current_port}"
 
     container = docker_client.containers.run("docker-kv-store", detach=True, ports={80: current_port})
-    wait_container_created(container)
+    time.sleep(3)
 
     container_id = container.id
     print(container_id)
@@ -55,55 +49,50 @@ def remove_all_containers():
         subprocess.run(stop_command.split())
         subprocess.run(rm_command.split())
 
-def get_resource_usage_prediction(num_read, num_write_, rw_ratio):
-    # output: cpu, memory usage prediction
-    # rf_model = joblib.load('models/rf.joblib')
-    # prediction = rf_model.predict([[num_read, num_write, r_w_ratio]])
-    predict_cpu = random.uniform(1, 100)
-    predict_memory = random.uniform(1, 10000)
-    return predict_cpu, predict_memory
+def get_resource_usage_prediction(num_read, num_write, rw_ratio):
+    model = joblib.load('models/lin_reg.joblib')            # change model file here
+    prediction = model.predict([[num_read, num_write, rw_ratio]])
+    pred_cpu, pred_memory = prediction[0][0], prediction[0][1]
+    return pred_cpu, pred_memory
 
-def calculate_cpu_percent(d):
-    print("--------------")
-    print(d["cpu_stats"]["cpu_usage"])
-    print("--------------")
-    #cpu_count = len(d["cpu_stats"]["cpu_usage"]["percpu_usage"])
-    cpu_percent = 0.0
-    cpu_delta = float(d["cpu_stats"]["cpu_usage"]["total_usage"]) - \
-                float(d["precpu_stats"]["cpu_usage"]["total_usage"])
-    system_delta = float(d["cpu_stats"]["system_cpu_usage"]) - \
-                   float(d["precpu_stats"]["system_cpu_usage"])
+def get_cpu_memory_usage(stats):
+    cpu_delta = float(stats["cpu_stats"]["cpu_usage"]["total_usage"]) - float(
+        stats["precpu_stats"]["cpu_usage"]["total_usage"]
+    )
+    system_delta = float(stats["cpu_stats"]["system_cpu_usage"]) - float(
+        stats["precpu_stats"]["system_cpu_usage"]
+    )
     if system_delta > 0.0:
         cpu_percent = cpu_delta / system_delta * 100.0
-    return cpu_percent
+
+    memory_usage = stats["memory_stats"]["usage"] / (
+        1024 * 1024
+    )  # Convert to MB
+
+    memory_limt = stats["memory_stats"]["limit"] / (1024 * 1024)
+
+    return cpu_percent, memory_usage, memory_limt
 
 def no_space_in_container(num_write, num_read, rw_ratio):
     # List all running containers
     containers = docker_client.containers.list()
 
     required_cpu, required_memory = get_resource_usage_prediction(num_read, num_write, rw_ratio)
+    print("required cpu: {:.2f}".format(required_cpu))
+    print("required memory: {:.2f}".format(required_memory))
 
     # Extract and print the names of running containers
     for container in containers:
         print("Container Name:", container.name)
         stats = container.stats(stream=False)
 
-        cpu_percentage = calculate_cpu_percent(stats)
-        # Extract CPU and memory usage information
-        print("cpu usage: {:.2f}".format(cpu_percentage))
-
-        memory_stats = stats['memory_stats']['usage']
-        memory_stats_mb = memory_stats / (1024 * 1024)
-
-        # Extract the memory limit (in bytes) from the container stats
-        memory_limit = stats['memory_stats']['limit']
-        # Convert the memory limit to megabytes for readability
-        memory_limit_mb = memory_limit / (1024 * 1024)
-
-        print(f"memory usage {memory_stats_mb} / {memory_limit_mb}")
+        cpu_usage, memory_usage, memory_limit = get_cpu_memory_usage(stats)
+        print("cpu usage: {:.2f}".format(cpu_usage))
+        print("memory usage: {:.2f}".format(memory_usage))
+        print("memory limit: {:.2f}".format(memory_limit))
 
         # FIX LATER
-        if (cpu_percentage + required_cpu <= 100) and (memory_stats_mb + required_memory <= memory_limit_mb):
+        if (cpu_usage + required_cpu <= 100) and (memory_usage + required_memory <= memory_limit):
             print("There is space to work on task")
             print()
             return False
@@ -112,65 +101,57 @@ def no_space_in_container(num_write, num_read, rw_ratio):
     print("Unable to handle workload, launch the new container!!")
     return True
 
-def generate_random_string(
-    k,
-    seed=None,
-):
-    random.seed(seed)
-
-    return "".join(random.choice(string.ascii_letters) for _ in range(k))
-
-def workload(workload_id):
-    # generate a type of workload (read-intensive, write-intensive, balanced)
-    combination = random.choice(combinaitons)
-    NUM_REQUESTS = random.randint(1, 100)  # Can increase this to max
-    NUM_WRITE_REQUESTS = 0
-    NUM_READ_REQUESTS = 0
-    RW_RATIO = 0
-
-    if combination == "RI":
-        NUM_READ_REQUESTS = round((NUM_REQUESTS * 0.9))
-        NUM_WRITE_REQUESTS = NUM_REQUESTS - NUM_READ_REQUESTS
-        RW_RATIO = 0.9
-
-    elif combination == "WI":
-        NUM_READ_REQUESTS = round(NUM_REQUESTS * 0.1)
-        NUM_WRITE_REQUESTS = NUM_REQUESTS - NUM_READ_REQUESTS
-        RW_RATIO = 0.1
-
-    elif combination == "B":
-        NUM_READ_REQUESTS = round(NUM_REQUESTS * 0.5)
-        NUM_WRITE_REQUESTS = NUM_REQUESTS - NUM_READ_REQUESTS
-        RW_RATIO = 0.5
+def client_ops(client_id, workload):
+    num_write, num_read, rw_ratio = workload
+    written_keys = []
 
     # predict the container cpu and memory usage
     # launch new container if needed
-    if no_space_in_container(NUM_WRITE_REQUESTS, NUM_READ_REQUESTS, RW_RATIO):
+    if no_space_in_container(num_write, num_read, rw_ratio):
         launch_new_container()
 
-    # handle workload
-    print(f"handling workload {workload_id} ...")
-    for i in range(NUM_WRITE_REQUESTS):
-        key = f"key-{workload_id}-{i}"
-        value = generate_random_string(random.randint(1, 100))
+    for i in range(num_write):
+        key = f"key-{client_id}-{i}"
+        value = f"value-{client_id}-{i}"
 
-        url = ring.get_node(key)
-        print(url)
-        requests.put(f"{url}/store", params={"key": key}, data={"value": value})
+        server_url = ring.get_node(key)
 
-    for j in range(NUM_READ_REQUESTS):
-        key = f"key-{workload_id}-{j}"
-        
-        url = ring.get_node(key)
-        requests.get(f"{url}/retrieve", params={"key": key})
+        try:
+            response = requests.put(
+                f"{server_url}/store", params={"key": key}, data={"value": value}
+            )
+            # print(f"PUT response: {response.status_code}, {response.text}")
+            written_keys.append(key)
+        except Exception as e:
+            print(f"Error during PUT request: {e}")
+
+    for j in range(num_read):
+        random_key_index = random.randint(0, len(written_keys) - 1)
+        key = written_keys[random_key_index]
+
+        server_url = ring.get_node(key)
+
+        # print(f"Get checkpoint - Server URL: {server_url}, Key: {written_keys[j]}")
+        try:
+            response = requests.get(
+                f"{server_url}/retrieve", params={"key": key}
+            )
+            # print(f"GET response: {response.status_code}, {response.text}")
+        except Exception as e:
+            print(f"Error during GET request: {e}")    
 
 if __name__ == "__main__":
     # run one container
     launch_new_container()
 
-    # workload
-    for i in range(10):
-        workload(i)
+    # read workload from file
+    with open("workload.txt", "r") as f:
+        workload = f.readlines()
+        workload = [line.strip().split(" ") for line in workload]
+        workload = [(int(n_write), int(n_read), float(rw_ratio)) for n_write, n_read, rw_ratio in workload]
+
+    for client_id in range(len(workload)):
+        client_ops(client_id, workload[client_id])
 
     # remove all containers
     remove_all_containers()

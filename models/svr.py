@@ -6,7 +6,7 @@ from sklearn.model_selection import train_test_split
 from utils import read_csv, validate
 
 X, y = read_csv()
-N_LABELS = 7
+N_LABELS = 2
 
 # split the data into training and test sets
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
@@ -24,7 +24,7 @@ overall_rmse = 0
 overall_mae = 0
 overall_r2 = 0
 for i, svr in enumerate(svrs):
-    y_pred, rmse, mae, r2 = validate(svr, X_test, y_test[:, i], f'SVR {["max_memory_used", "cpu_total_tottime", "cpu_total_cumtime", "cpu_percall_tottime", "cpu_percall_cumtime", "throughput", "latency"][i]}')
+    y_pred, rmse, mae, r2 = validate(svr, X_test, y_test[:, i], f'SVR {["max_cpu_usage", "max_memory_usage"][i]}')
     overall_rmse += rmse
     overall_mae += mae
     overall_r2 += r2

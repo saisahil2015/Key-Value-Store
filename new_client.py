@@ -252,7 +252,7 @@ def client_ops(client_id, max_stats):
     server_url = servers[container.id]
     # print("Server url: ", server_url)
     combination = random.choice(combinations)
-    NUM_REQUESTS = random.randint(1, 100)
+    NUM_REQUESTS = random.randint(250, 500)
     NUM_WRITE_REQUESTS, NUM_READ_REQUESTS = 0, 0
 
     if combination == "RI":
@@ -270,7 +270,7 @@ def client_ops(client_id, max_stats):
     written_keys = []
 
     for i in range(NUM_WRITE_REQUESTS):
-        seed = f"key-{client_id}-{i}"
+        seed = f"key-{client_id}-{i}-uiwetioewipp"
         key = generate_random_string(random.randint(1, 100), seed)
         value = generate_random_string(random.randint(1, 100))
         # print(f"Put checkpoint - Server URL: {server_url}, Key: {key}, Value: {value}")
@@ -283,7 +283,7 @@ def client_ops(client_id, max_stats):
         except Exception as e:
             print(f"Error during PUT request: {e}")
 
-    FOUND_REQUESTS = random.randint(1, NUM_WRITE_REQUESTS)
+    FOUND_REQUESTS = random.randint(0, NUM_WRITE_REQUESTS)
     NOTFOUND_REQUESTS = NUM_WRITE_REQUESTS - FOUND_REQUESTS
 
     for j in range(len(written_keys[:FOUND_REQUESTS])):
@@ -321,9 +321,9 @@ def client_ops(client_id, max_stats):
     # print("Container stopped")
 
     max_cpu_usage, max_memory_usage = max_stats[container.id].values()
-    print(
-        f"Client-{client_id} Num Read: {NUM_READ_REQUESTS} Num Write {NUM_WRITE_REQUESTS} Read-Write-Ratio: {NUM_READ_REQUESTS/NUM_WRITE_REQUESTS} Max CPU Usage: {max_cpu_usage}, Max Memory Usage: {max_memory_usage}"
-    )
+    # print(
+    #     f"Client-{client_id} Num Read: {NUM_READ_REQUESTS} Num Write {NUM_WRITE_REQUESTS} Read-Write-Ratio: {NUM_READ_REQUESTS/NUM_WRITE_REQUESTS} Max CPU Usage: {max_cpu_usage}, Max Memory Usage: {max_memory_usage}"
+    # )
 
     METRICS_URL = f"http://{HOST}:90"
     metrics = {
