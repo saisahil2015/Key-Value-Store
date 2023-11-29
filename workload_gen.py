@@ -1,11 +1,15 @@
+# this file is for generating workloads for actually testing the autoscaling vs non-autoscaling
+# new_client.py used for generating generating workloads and related metrics for training the models used for autoscaling
+
 import random
 
 combinations = ["RI", "WI", "B"]
 
+
 def generate_workload(n=100):
     arr = []
 
-    for _ in range(n):    
+    for _ in range(n):
         combination = random.choice(combinations)
         NUM_REQUESTS = random.randint(10, 200)
         NUM_WRITE_REQUESTS, NUM_READ_REQUESTS = 0, 0
@@ -20,7 +24,13 @@ def generate_workload(n=100):
             NUM_READ_REQUESTS = round(NUM_REQUESTS * 0.5)
             NUM_WRITE_REQUESTS = NUM_REQUESTS - NUM_READ_REQUESTS
 
-        arr.append((NUM_WRITE_REQUESTS, NUM_READ_REQUESTS, NUM_READ_REQUESTS / NUM_WRITE_REQUESTS))
+        arr.append(
+            (
+                NUM_WRITE_REQUESTS,
+                NUM_READ_REQUESTS,
+                NUM_READ_REQUESTS / NUM_WRITE_REQUESTS,
+            )
+        )
 
     return arr
 
