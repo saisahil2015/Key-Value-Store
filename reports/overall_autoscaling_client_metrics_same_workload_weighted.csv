@@ -1,0 +1,2 @@
+Metric,Num Containers Launched,Combined Threshold,CPU Weight,Memory Weight,Mean Reads,Std Dev Reads,Variance Reads,Mean Writes,Std Dev Writes,Variance Writes,Mean RW Ratio,Std Dev RW Ratio,Variance RW Ratio,Mean Throughput,Std Dev Throughput,Variance Throughput,Mean Latency,Std Dev Latency,Variance Latency,Mean Error Rate,Std Dev Error Rate,Variance Error Rate
+Overall Stats,26,40,0.3,0.7,103,0.0,0,12,0.0,0,0.11650485436893204,0.0,0.0,5.027784133706355,4.464973621624336,19.935989441801137,0.4321487576341889,0.4757778476612407,0.22636456032516278,0.0,0.0,0.0
