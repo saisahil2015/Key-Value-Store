@@ -19,4 +19,4 @@ model.fit(X_train, y_train)
 y_pred, rmse, mae, r2 = validate(model, X_test, y_test, 'Random Forest Regression')
 
 # save the model
-dump(model, 'models/new_rf.joblib')
+# dump(model, 'models/new_rf.joblib')

@@ -50,6 +50,12 @@ def store_metrics():
             num_read=data["num_reads"],
             num_write=data["num_writes"],
             read_write_ratio=data["read_write_ratio"],
+            mean_key_size=data["mean_key_size"],
+            mean_value_size=data["mean_value_size"],
+            std_key_size=data["std_key_size"],
+            std_value_size=data["std_value_size"],
+            var_key_size=data["var_key_size"],
+            var_value_size=data["var_value_size"],
             max_cpu_usage=data["max_cpu_usage"],
             max_memory_usage=data["max_memory_usage"],
         )

@@ -124,7 +124,7 @@ import string
 import docker
 
 HOST = "127.0.0.1"
-NUM_CLIENTS = 10
+NUM_CLIENTS = 500
 combinations = ["RI", "WI", "B"]
 docker_client = docker.from_env()
 
@@ -252,7 +252,7 @@ def client_ops(client_id, max_stats):
     server_url = servers[container.id]
     # print("Server url: ", server_url)
     combination = random.choice(combinations)
-    NUM_REQUESTS = random.randint(250, 500)
+    NUM_REQUESTS = random.randint(150, 350)
     NUM_WRITE_REQUESTS, NUM_READ_REQUESTS = 0, 0
 
     if combination == "RI":
@@ -268,9 +268,10 @@ def client_ops(client_id, max_stats):
     time.sleep(5)  # helped resolved errors
 
     written_keys = []
+    written_values = []
 
     for i in range(NUM_WRITE_REQUESTS):
-        seed = f"key-{client_id}-{i}-uiwetioewipp"
+        seed = f"key-{client_id}-{i}-aataujagt"
         key = generate_random_string(random.randint(1, 100), seed)
         value = generate_random_string(random.randint(1, 100))
         # print(f"Put checkpoint - Server URL: {server_url}, Key: {key}, Value: {value}")
@@ -280,6 +281,7 @@ def client_ops(client_id, max_stats):
             )
             # print(f"PUT response: {response.status_code}, {response.text}")
             written_keys.append(key)
+            written_values.append(value)
         except Exception as e:
             print(f"Error during PUT request: {e}")
 
@@ -325,11 +327,37 @@ def client_ops(client_id, max_stats):
     #     f"Client-{client_id} Num Read: {NUM_READ_REQUESTS} Num Write {NUM_WRITE_REQUESTS} Read-Write-Ratio: {NUM_READ_REQUESTS/NUM_WRITE_REQUESTS} Max CPU Usage: {max_cpu_usage}, Max Memory Usage: {max_memory_usage}"
     # )
 
+    # calculate mean, std, var of key and value size
+    mean_key_size, mean_value_size, std_key_size, std_value_size, var_key_size, var_value_size = 0, 0, 0, 0, 0, 0
+
+    if len(written_keys) > 0:
+        mean_key_size = sum([len(key) for key in written_keys]) / len(written_keys)
+        mean_value_size = sum([len(value) for value in written_values]) / len(
+            written_values
+        )
+        std_key_size = (
+            sum([(len(key) - mean_key_size) ** 2 for key in written_keys])
+            / len(written_keys)
+        ) ** 0.5
+        std_value_size = (
+            sum([(len(value) - mean_value_size) ** 2 for value in written_values])
+            / len(written_values)
+        ) ** 0.5
+        var_key_size = std_key_size ** 2
+        var_value_size = std_value_size ** 2
+
+
     METRICS_URL = f"http://{HOST}:90"
     metrics = {
         "num_reads": NUM_READ_REQUESTS,
         "num_writes": NUM_WRITE_REQUESTS,
         "read_write_ratio": NUM_READ_REQUESTS / NUM_WRITE_REQUESTS,
+        "mean_key_size": mean_key_size,
+        "mean_value_size": mean_value_size,
+        "std_key_size": std_key_size,
+        "std_value_size": std_value_size,
+        "var_key_size": var_key_size,
+        "var_value_size": var_value_size,
         "max_cpu_usage": max_cpu_usage,
         "max_memory_usage": max_memory_usage,
     }

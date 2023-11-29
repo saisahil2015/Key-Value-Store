@@ -18,4 +18,4 @@ model.fit(X_train, y_train)
 # validation
 y_pred, rmse, mae, r2 = validate(model, X_test, y_test, 'Linear Regression')
 
-dump(model, 'models/lin_reg.joblib')
+# dump(model, 'models/lin_reg.joblib')
