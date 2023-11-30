@@ -35,7 +35,6 @@ def start_docker_container(client_id):
         detach=True,
         name=container_name,
         ports={"80/tcp": port},
-        mem_limit="15m",
         auto_remove=True,
     )
 
@@ -120,7 +119,7 @@ def run_clients():
 
     # for client_id in range(0, 10):
     for client_id in range(len(workload)):
-        num_writes, num_reads, rw_ratio = workload[client_id]
+        num_reads, num_writes, rw_ratio = workload[0]
         all_reads.append(num_reads)
         all_writes.append(num_writes)
         all_rw_ratios.append(rw_ratio)
@@ -128,8 +127,8 @@ def run_clients():
 
         # Run client operations and measure time
         # start_time = time.time()
-        start_time = time.perf_counter()
-        time.sleep(2)
+        start_time = time.time()
+        # time.sleep(2)
         errors, succeses = client_ops(
             client_id, container.id, workload[client_id]
         )  # Assuming this function is defined
@@ -137,8 +136,8 @@ def run_clients():
 
         # Update cumulative time and compute throughput and latency
         # cumulative_time += operation_time
-        # total_time = time.time() - start_time
-        total_time = time.perf_counter() - start_time - 2
+        total_time = time.time() - start_time
+        # total_time = time.perf_counter() - start_time - 2
         NUM_OPS = num_reads + num_writes
         throughput = float(succeses / total_time)
         latency = float(total_time / succeses)
