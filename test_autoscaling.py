@@ -187,17 +187,17 @@ def get_cpu_memory_usage(stats):
 #         #     # print()
 #         #     return False
 #         # # print()
-#         # if (cpu_usage + required_cpu < 100) or (
-#         #     memory_usage + required_memory < memory_limit
-#         # ):
-#         #     # print("There is space to work on task")
-#         #     # print()
+#         if (cpu_usage + required_cpu < 100) or (
+#             memory_usage + required_memory < memory_limit
+#         ):
+#             # print("There is space to work on task")
+#             # print()
+#             return False
+#         # if cpu_usage + required_cpu < 15:
 #         #     return False
-#         if cpu_usage + required_cpu < 15:
-#             return False
 
-#         if memory_usage + required_memory == memory_limit:
-#             return False
+#         # if memory_usage + required_memory == memory_limit:
+#         #     return False
 
 #     # print("Unable to handle workload, launch the new container!!")
 #     return True

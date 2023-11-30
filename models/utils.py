@@ -1,7 +1,7 @@
 import numpy as np
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 
-def read_csv(file_name='data.csv'):
+def read_csv(file_name='new_data.csv'):
     data = np.loadtxt(file_name, delimiter=',', skiprows=1)
 
     # remove first column

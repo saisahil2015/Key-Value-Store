@@ -252,7 +252,7 @@ def client_ops(client_id, max_stats):
     server_url = servers[container.id]
     # print("Server url: ", server_url)
     combination = random.choice(combinations)
-    NUM_REQUESTS = random.randint(150, 350)
+    NUM_REQUESTS = random.randint(150, 10000)
     NUM_WRITE_REQUESTS, NUM_READ_REQUESTS = 0, 0
 
     if combination == "RI":
@@ -271,9 +271,9 @@ def client_ops(client_id, max_stats):
     written_values = []
 
     for i in range(NUM_WRITE_REQUESTS):
-        seed = f"key-{client_id}-{i}-aataujagt"
-        key = generate_random_string(random.randint(1, 100), seed)
-        value = generate_random_string(random.randint(1, 100))
+        seed = f"key-{client_id}-{i}"
+        key = generate_random_string(random.randint(1, 250), seed)
+        value = generate_random_string(random.randint(1, 250))
         # print(f"Put checkpoint - Server URL: {server_url}, Key: {key}, Value: {value}")
         try:
             response = requests.put(
@@ -299,7 +299,7 @@ def client_ops(client_id, max_stats):
             print(f"Error during GET request: {e}")
 
     for _ in range(NOTFOUND_REQUESTS):
-        key = generate_random_string(random.randint(1, 100))
+        key = generate_random_string(random.randint(1, 250))
         # print(f"Get checkpoint - Server URL: {server_url}, Key: {key}")
         try:
             response = requests.get(f"{server_url}/retrieve", params={"key": key})
@@ -354,10 +354,10 @@ def client_ops(client_id, max_stats):
         "read_write_ratio": NUM_READ_REQUESTS / NUM_WRITE_REQUESTS,
         "mean_key_size": mean_key_size,
         "mean_value_size": mean_value_size,
-        "std_key_size": std_key_size,
-        "std_value_size": std_value_size,
-        "var_key_size": var_key_size,
-        "var_value_size": var_value_size,
+        # "std_key_size": std_key_size,
+        # "std_value_size": std_value_size,
+        # "var_key_size": var_key_size,
+        # "var_value_size": var_value_size,
         "max_cpu_usage": max_cpu_usage,
         "max_memory_usage": max_memory_usage,
     }
