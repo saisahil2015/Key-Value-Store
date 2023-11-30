@@ -35,6 +35,7 @@ def start_docker_container(client_id):
         detach=True,
         name=container_name,
         ports={"80/tcp": port},
+        mem_limit="15m",
         auto_remove=True,
     )
 
@@ -119,7 +120,9 @@ def run_clients():
 
     # for client_id in range(0, 10):
     for client_id in range(len(workload)):
-        num_reads, num_writes, rw_ratio = workload[0]
+        num_reads, num_writes, rw_ratio = workload[
+            client_id
+        ]  # VERIFY WITH WORKLOAD_GEN.PY
         all_reads.append(num_reads)
         all_writes.append(num_writes)
         all_rw_ratios.append(rw_ratio)
