@@ -25,9 +25,12 @@ transition = False
 total_containers = 0
 
 
-combined_threshold = 40
-cpu_weight = 0.3
-memory_weight = 0.7
+combined_threshold = 18.53
+cpu_weight = 0.7
+memory_weight = 0.3
+
+AVG_CPU_USAGES = []
+AVG_MEMORY_USAGES = []
 
 
 def launch_new_container():
@@ -222,6 +225,9 @@ def no_space_in_container(num_write, num_read, rw_ratio):
     # Calculate average usage
     avg_cpu_usage = total_cpu_usage / len(containers) if containers else 0
     avg_memory_usage = total_memory_usage / len(containers) if containers else 0
+
+    AVG_CPU_USAGES.append(avg_cpu_usage)
+    AVG_MEMORY_USAGES.append(avg_memory_usage)
 
     # Define weights based on importance
     # cpu_weight = 0.3  # Example weight for CPU
@@ -572,6 +578,15 @@ if __name__ == "__main__":
             statistics.variance(error_rates),
         ]
         csvwriter.writerow(overall_stats)
+
+    with open("resource_usage.csv", "w", newline="") as csvfile:
+        csvwriter = csv.writer(csvfile)
+        # Writing the headers
+        csvwriter.writerow(["Index", "Average CPU Usage", "Average Memory Usage"])
+
+        # Writing the data
+        for index, (cpu, memory) in enumerate(zip(AVG_CPU_USAGES, AVG_MEMORY_USAGES)):
+            csvwriter.writerow([index, cpu, memory])
 
 
 # CAN EVEN CREATE GRAPH OF RESPONSE TIME FOR EACH WORKLOAD OR AS CONTAINRES ARE ADDED. FIGURE THIS OUT

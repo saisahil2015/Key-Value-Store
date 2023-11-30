@@ -35,7 +35,7 @@ def start_docker_container(client_id):
         detach=True,
         name=container_name,
         ports={"80/tcp": port},
-        mem_limit="15m",  # 10m #15m
+        mem_limit="15m",
         auto_remove=True,
     )
 
