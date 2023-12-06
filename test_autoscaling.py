@@ -8,6 +8,7 @@ import joblib
 import string
 import statistics
 import csv
+import threading
 
 # globals
 HOST = "localhost"
@@ -33,7 +34,25 @@ AVG_CPU_USAGES = []
 AVG_MEMORY_USAGES = []
 
 
+key_lengths = []
+value_lengths = []
+
+num_reads_list = []
+num_writes_list = []
+# start = False
+
+
+lock = threading.Lock()
+
+monitoring_active = True
+
+
 def launch_new_container():
+    # time.sleep(2)
+    # TRY REMOVING START
+    # global start
+    # if start:
+    #     time.sleep(2)
     global total_containers
     total_containers += 1
     print("New container launched")
@@ -92,9 +111,33 @@ def remove_all_containers():
         subprocess.run(rm_command.split())
 
 
-def get_resource_usage_prediction(num_read, num_write, rw_ratio):
-    model = joblib.load("models/lin_reg.joblib")  # change model file here
-    prediction = model.predict([[num_read, num_write, rw_ratio]])
+def get_resource_usage_prediction(
+    num_read,
+    num_write,
+    rw_ratio,
+    mean_key_size,
+    mean_value_size,
+    std_key_size,
+    std_value_size,
+    var_key_size,
+    var_value_size,
+):
+    model = joblib.load("models/lin_reg_best.joblib")  # change model file here
+    prediction = model.predict(
+        [
+            [
+                num_read,
+                num_write,
+                rw_ratio,
+                mean_key_size,
+                mean_value_size,
+                std_key_size,
+                std_value_size,
+                var_key_size,
+                var_value_size,
+            ]
+        ]
+    )
     pred_cpu, pred_memory = prediction[0][0], prediction[0][1]
     return pred_cpu, pred_memory
 
@@ -118,228 +161,160 @@ def get_cpu_memory_usage(stats):
     return cpu_percent, memory_usage, memory_limt
 
 
-# # AGGREGATE VERSION. not much improvement with this
-# def no_space_in_container(num_write, num_read, rw_ratio):
-#     # List all running containers
-#     containers = docker_client.containers.list()
+def monitor_containers():
+    # print("Monitor Check")
+    global monitoring_active
 
-#     # Get resource usage prediction for the workload
-#     required_cpu, required_memory = get_resource_usage_prediction(
-#         num_read, num_write, rw_ratio
-#     )
+    if not monitoring_active:
+        return
 
-#     # Initialize total CPU and memory usage
-#     total_cpu_usage, total_memory_usage = 0.0, 0.0
-#     total_memory_limit = 0.0
+    else:
+        threading.Timer(2, monitor_containers).start()
 
-#     # Iterate over all containers to aggregate resource usage
-#     for container in containers:
-#         stats = container.stats(stream=False)
-#         cpu_usage, memory_usage, memory_limit = get_cpu_memory_usage(stats)
-#         total_cpu_usage += cpu_usage
-#         total_memory_usage += memory_usage
-#         total_memory_limit += memory_limit
+    # print("Are we monitoring?")
 
-#     # Calculate the mean CPU and memory usage
-#     if containers:
-#         mean_cpu_usage = total_cpu_usage / len(containers)
-#         mean_memory_usage = total_memory_usage / len(containers)
-#         mean_memory_limit = total_memory_limit / len(containers)
-#     else:
-#         # If there are no containers, set usage to zero
-#         mean_cpu_usage, mean_memory_usage, mean_memory_limit = 0.0, 0.0, 0.0
+    # threading.Timer(2, monitor_containers).start()
+    # if key_lengths and value_lengths:
+    # print("Key lengths: ", key_lengths)
+    # print("Value lengths: ", value_lengths)
+    # print("Num Reads: ", num_reads_list)
+    # print("Num Writes: ", num_writes_list)
 
-#     # Check if the system can handle the workload
-#     can_handle_workload = (mean_cpu_usage + required_cpu <= 100) and (
-#         mean_memory_usage + required_memory <= mean_memory_limit
-#     )
+    if not (key_lengths and value_lengths and num_reads_list and num_writes_list):
+        # print("Not check")
+        return
+    # print("Are we here?")
 
-#     # If unable to handle workload, return True to indicate need for new container
-#     return not can_handle_workload
+    if len(key_lengths) > 2:
+        # print("Length check")
+        mean_key_length = statistics.mean(key_lengths)
+        std_key_length = statistics.stdev(key_lengths)
+        var_key_length = statistics.variance(key_lengths)
 
+        mean_value_length = statistics.mean(value_lengths)
+        std_value_length = statistics.stdev(value_lengths)
+        var_value_length = statistics.variance(value_lengths)
 
-# CHECKING FOR EACH CONTAINER (#around 50 throughput and 0.003 latency but with few errors and certainly worse than non-autoscaling)
-# def no_space_in_container(num_write, num_read, rw_ratio):
-#     # List all running containers
-#     containers = docker_client.containers.list()
+        # Calculate statistics for reads and writes
+        mean_reads = statistics.mean(
+            num_reads_list
+        )  # though in model only tested with certain reads and writes
+        mean_writes = statistics.mean(num_writes_list)
 
-#     # print("Contaienrs: ", containers)
+        # Use these statistics in your model
+        required_cpu, required_memory = get_resource_usage_prediction(
+            mean_reads,
+            mean_writes,
+            mean_reads / mean_writes,
+            mean_key_length,
+            mean_value_length,
+            std_key_length,
+            std_value_length,
+            var_key_length,
+            var_value_length,
+        )
 
-#     required_cpu, required_memory = get_resource_usage_prediction(
-#         num_read, num_write, rw_ratio
-#     )
-#     # print("required cpu: {:.2f}".format(required_cpu))
-#     # print("required memory: {:.2f}".format(required_memory))
+        # print("Required cpu: ", required_cpu)
+        # print("Required memory: ", required_memory)
 
-#     # Extract and print the names of running containers
-#     for container in containers:
-#         # print("Check")
-#         # print("Container Name:", container.name)
-#         stats = container.stats(stream=False)
+        # Reset the lists for the next interval
+        # with lock:
+        # print("Locking check")
+        key_lengths.clear()
+        value_lengths.clear()
+        num_reads_list.clear()
+        num_writes_list.clear()
 
-#         cpu_usage, memory_usage, memory_limit = get_cpu_memory_usage(stats)
-#         # print("cpu usage: {:.2f}".format(cpu_usage))
-#         # print("memory usage: {:.2f}".format(memory_usage))
-#         # print("memory limit: {:.2f}".format(memory_limit))
+        containers = docker_client.containers.list()
 
-#         # FIX LATER
-#         # if (cpu_usage + required_cpu <= 0.95) or (
-#         #     memory_usage + required_memory <= memory_limit - 0.2
-#         # ):
-#         #     # print("There is space to work on task")
-#         #     # print()
-#         #     return False
-#         # # print()
-#         if (cpu_usage + required_cpu < 100) or (
-#             memory_usage + required_memory < memory_limit
-#         ):
-#             # print("There is space to work on task")
-#             # print()
-#             return False
-#         # if cpu_usage + required_cpu < 15:
-#         #     return False
+        total_cpu_usage, total_memory_usage = 0, 0
+        total_memory_limit = 0
+        for container in containers:
+            stats = container.stats(stream=False)
+            cpu_usage, memory_usage, memory_limit = get_cpu_memory_usage(stats)
+            total_cpu_usage += cpu_usage
+            total_memory_usage += memory_usage
+            total_memory_limit += memory_limit
 
-#         # if memory_usage + required_memory == memory_limit:
-#         #     return False
+        avg_cpu_usage = total_cpu_usage / len(containers) if containers else 0
+        avg_memory_usage = total_memory_usage / len(containers) if containers else 0
 
-#     # print("Unable to handle workload, launch the new container!!")
-#     return True
+        AVG_CPU_USAGES.append(avg_cpu_usage)
+        AVG_MEMORY_USAGES.append(avg_memory_usage)
 
+        with open("autoscaling_logs.txt", "a") as f:
+            f.write(
+                f"Autoscale checkpint combined_memory_usage: {required_memory + avg_memory_usage } combined_cpu_usage: {required_cpu + avg_cpu_usage}\n"
+            )
 
-def no_space_in_container(num_write, num_read, rw_ratio):
-    containers = docker_client.containers.list()
+        if (
+            required_memory + avg_memory_usage > 15
+            and required_cpu + avg_cpu_usage > 1.8
+        ):
+            return True
 
-    required_cpu, required_memory = get_resource_usage_prediction(
-        num_read, num_write, rw_ratio
-    )
+        # curr_weighted_utilization = (cpu_weight * avg_cpu_usage) + (
+        #     memory_weight * avg_memory_usage
+        # )
 
-    total_cpu_usage, total_memory_usage = 0, 0
-    total_memory_limit = 0
-    for container in containers:
-        stats = container.stats(stream=False)
-        cpu_usage, memory_usage, memory_limit = get_cpu_memory_usage(stats)
-        total_cpu_usage += cpu_usage
-        total_memory_usage += memory_usage
-        total_memory_limit += memory_limit
+        # req_weighted_utilization = (cpu_weight * required_cpu) + (
+        #     memory_weight * required_memory
+        # )
 
-    # Calculate average usage
-    avg_cpu_usage = total_cpu_usage / len(containers) if containers else 0
-    avg_memory_usage = total_memory_usage / len(containers) if containers else 0
+        # print("Current weighted cpu average: ", cpu_weight * avg_cpu_usage)
+        # print("Current weighted memory average: ", memory_weight * avg_memory_usage)
+        # print("Current Weighted utilization: ", curr_weighted_utilization)
+        # print("Required weighted cpu average: ", cpu_weight * required_cpu)
+        # print("Required weighted memory average: ", memory_weight * required_memory)
+        # print("Required Weighted utilization: ", req_weighted_utilization)
+        # print(
+        #     "Combined Weighted utilization: ",
+        #     curr_weighted_utilization + req_weighted_utilization,
+        # )
 
-    AVG_CPU_USAGES.append(avg_cpu_usage)
-    AVG_MEMORY_USAGES.append(avg_memory_usage)
-
-    # Define weights based on importance
-    # cpu_weight = 0.3  # Example weight for CPU
-    # memory_weight = 0.7  # Example weight for memory
-
-    # Calculate weighted utilization
-    curr_weighted_utilization = (cpu_weight * avg_cpu_usage) + (
-        memory_weight * avg_memory_usage
-    )
-
-    req_weighted_utilization = (cpu_weight * required_cpu) + (
-        memory_weight * required_memory
-    )
-
-    # print("Current weighted cpu average: ", cpu_weight * avg_cpu_usage)
-    # print("Current weighted memory average: ", memory_weight * avg_memory_usage)
-    # print("Current Weighted utilization: ", curr_weighted_utilization)
-    # print("Required weighted cpu average: ", cpu_weight * required_cpu)
-    # print("Required weighted memory average: ", memory_weight * required_memory)
-    # print("Required Weighted utilization: ", req_weighted_utilization)
-    # print(
-    #     "Combined Weighted utilization: ",
-    #     curr_weighted_utilization + req_weighted_utilization,
-    # )
-
-    # Define a combined threshold (for example, 80%)
-    # combined_threshold = 34.7
-
-    # Check against the combined threshold and predicted requirements
-    if curr_weighted_utilization + req_weighted_utilization > combined_threshold:
-        return True
+        # if curr_weighted_utilization + req_weighted_utilization > combined_threshold:
+        #     return True
 
     return False
 
 
-# def no_space_in_container(num_write, num_read, rw_ratio):
-#     containers = docker_client.containers.list()
-
-#     required_cpu, required_memory = get_resource_usage_prediction(
-#         num_read, num_write, rw_ratio
-#     )
-
-#     total_cpu_usage, total_memory_usage = 0, 0
-#     total_memory_limit = 0
-#     for container in containers:
-#         stats = container.stats(stream=False)
-#         cpu_usage, memory_usage, memory_limit = get_cpu_memory_usage(stats)
-#         total_cpu_usage += cpu_usage
-#         total_memory_usage += memory_usage
-#         total_memory_limit += memory_limit
-
-#     # Calculate average usage
-#     avg_cpu_usage = total_cpu_usage / len(containers) if containers else 0
-#     avg_memory_usage = total_memory_usage / len(containers) if containers else 0
-
-#     print("Current Avg cpu usage: ", avg_cpu_usage)
-#     print("Current Avg memory usage: ", avg_memory_usage)
-#     print("Req cpu usage: ", required_cpu)
-#     print("Req memory usage: ", required_memory)
-
-#     current_ratio = avg_cpu_usage / avg_memory_usage
-#     required_ratio = required_cpu / required_memory
-
-#     print("Current Ratio: ", current_ratio)
-#     print("Req Ratio: ", required_ratio)
-
-#     print("Combined Ratio: ", current_ratio + required_ratio)
-
-#     # print("Current weighted cpu average: ", cpu_weight * avg_cpu_usage)
-#     # print("Current weighted memory average: ", memory_weight * avg_memory_usage)
-#     # print("Current Weighted utilization: ", curr_weighted_utilization)
-#     # print("Required weighted cpu average: ", cpu_weight * required_cpu)
-#     # print("Required weighted memory average: ", memory_weight * required_memory)
-#     # print("Required Weighted utilization: ", req_weighted_utilization)
-#     # print(
-#     #     "Combined Weighted utilization: ",
-#     #     curr_weighted_utilization + req_weighted_utilization,
-#     # )
-
-#     # Define a combined threshold (for example, 80%)
-#     # combined_threshold = 34.7
-
-#     # Check against the combined threshold and predicted requirements
-#     # if curr_weighted_utilization + req_weighted_utilization > combined_threshold:
-#     #     return True
-
-#     return False
-
-
 def client_ops(client_id, workload):
     num_write, num_read, rw_ratio = workload
-    written_keys = []
 
+    with lock:
+        num_reads_list.append(num_read)
+        num_writes_list.append(num_write)
+    written_keys = []
+    operation_times = []
+    need_new_container = False
     errors = 0
     successes = 0
 
     # predict the container cpu and memory usage
     # launch new container if needed
     global transition
-    if no_space_in_container(num_write, num_read, rw_ratio):
+    # if no_space_in_container(num_write, num_read, rw_ratio):
+    # if monitoring_thread(num_write, num_read, rw_ratio):
+    with lock:
+        need_new_container = monitor_containers()
+
+    if need_new_container:
         launch_new_container()
-        # launch_new_container() launch multiple cotnainres at a time?
-        transition = True
-        # print("Transition: ", transition)
+        with lock:
+            transition = True
 
     for i in range(num_write):
-        if transition:
-            time.sleep(2)  # 0.5
-            transition = False
+        with lock:
+            if transition:
+                time.sleep(5)  # 0.5
+                transition = False
         # print("Transition Put check: ", transition)
         key = f"key-{client_id}-{i}"  # NEED TO ADD RANDOMNESS IN KEY GENERATION AND VALUE GENERATION
         value = f"value-{client_id}-{i}"
+
+        with lock:
+            key_lengths.append(len(key))
+            value_lengths.append(len(value))
 
         # seed = f"key-{client_id}-{i}"
         # key = generate_random_string(random.randint(1, 100), seed)
@@ -354,6 +329,8 @@ def client_ops(client_id, workload):
         #         f"Write checkpoint - Server URL: {server_url}, Key: {key} Value: {value}\n"
         #     )
 
+        start_time = time.time()
+
         try:
             response = requests.put(
                 f"{server_url}/store", params={"key": key}, data={"value": value}
@@ -363,20 +340,28 @@ def client_ops(client_id, workload):
             #     f.write(f"PUT response: {response.status_code}, {response.text}\n")
             if response.status_code == 404:
                 errors += 1
-                print("**" * 68)
-                print("Put Error")
+                # print("**" * 68)
+                # print("Put Error")
                 # break
             else:
                 successes += 1
             written_keys.append(key)
         except Exception as e:
             errors += 1
-            print(f"Error during PUT request: {e}")
+            # launch_new_container()
+            # print(f"Error during PUT request: {e}")
+
+        operation_time = time.time() - start_time
+        operation_times.append(operation_time)
 
     for j in range(num_read):
-        if transition:
-            time.sleep(2)  # 0.5
-            transition = False
+        if not written_keys:  # Check if there are keys to read
+            break
+
+        with lock:
+            if transition:
+                time.sleep(5)  # 0.5 #MAYBE HAVE IT NONBLOCKING
+                transition = False
         # print("Transition Get check: ", transition)
         random_key_index = random.randint(0, len(written_keys) - 1)
         key = written_keys[random_key_index]
@@ -386,6 +371,9 @@ def client_ops(client_id, workload):
         # print(f"Get checkpoint - Server URL: {server_url}, Key: {key}")
         # with open("autoscaling_logs.txt", "a") as f:
         #     f.write(f"Get checkpoint - Server URL: {server_url}, Key: {key}\n")
+
+        start_time = time.time()
+
         try:
             response = requests.get(f"{server_url}/retrieve", params={"key": key})
             # print(f"GET response: {response.status_code}, {response.text}")
@@ -393,23 +381,59 @@ def client_ops(client_id, workload):
             #     f.write(f"GET response: {response.status_code}, {response.text}\n")
             if response.status_code == 404:
                 errors += 1
-                print("**" * 68)
-                print("Get Error")
+                # print("**" * 68)
+                # print("Get Error")
                 # break
             else:
                 successes += 1
         except Exception as e:
             errors += 1
-            print(f"Error during GET request: {e}")
+            # print(f"Error during GET request: {e}")
+            # launch_new_container()
 
-    return errors, successes
+        operation_time = time.time() - start_time
+        operation_times.append(operation_time)
+
+    return errors, successes, operation_times
 
 
-if __name__ == "__main__":
+def client_thread(client_id, workload, result_lists):
+    print(f"Starting client thread {client_id}")
+    errors, successes, operation_times = client_ops(client_id, workload)
+    # print("Opertaions times: ", operation_times)
+
+    with lock:
+        result_lists["errors"].append(errors)
+        result_lists["successes"].append(successes)
+        result_lists["operation_times"].append(
+            operation_times
+        )  # Collect all operation times
+    # print(f"Client {client_id} Errors: ", result_lists["errors"])
+    # print(f"Client {client_id} Successes: ", result_lists["successes"])
+    # print(f"Client {client_id} Operation Times: ", result_lists["operation_times"])
+    # print(f"Finished client thread {client_id}")
+
+
+def run_clients():
     # run one container
+    global monitoring_active
 
     # LAUNCHING TWO CONTAINRES AT BEGNINNG MADE NO DIFFERENCE
+    # global start
+    threads = []
+    result_lists = {
+        "errors": [],
+        "successes": [],
+        "operation_times": [],
+    }
+    # start = True
     launch_new_container()
+    # start = False
+    # launch_new_container()
+    monitor_containers()
+
+    # monitoring_thread = threading.Thread(target=monitor_key_values)
+    # monitoring_thread.start()
     # launch_new_container()
 
     # print("Check")
@@ -417,7 +441,9 @@ if __name__ == "__main__":
     # time.sleep(5)
 
     # read workload from file
-    with open("workload.txt", "r") as f:
+
+    # Worked well with workload.txt
+    with open("new_workload.txt", "r") as f:
         workload = f.readlines()
         workload = [line.strip().split(" ") for line in workload]
         workload = [
@@ -437,55 +463,49 @@ if __name__ == "__main__":
         #     for n_write, n_read, rw_ratio in workload
         # ]
 
-    throughputs = []
-    latencies = []
-    error_rates = []
-    all_reads = []
-    all_writes = []
-    all_rw_ratios = []
+    for client_id, wl in enumerate(workload):
+        thread = threading.Thread(
+            target=client_thread, args=(client_id, wl, result_lists)
+        )
+        threads.append(thread)
+        # print(f"Starting thread for client {client_id}")
+        thread.start()
 
-    for client_id in range(len(workload)):
-        # for clie in range(len(workload)):
-        # for client_id in range(0, 10):
-        print(client_id)
-        # print("Total containers: ", total_containers)
-        # print("Workload: ", workload)
-        # print("Workload check: ", workload[client_id])
-        num_reads, num_writes, read_write_ratio = workload[0]
+    for thread in threads:
+        thread.join()
 
-        # GETTING LOT OF ERRORS WHEN DOING SO
+    throughputs = [
+        successes / sum(operation_times) if operation_times else 0
+        for successes, operation_times in zip(
+            result_lists["successes"], result_lists["operation_times"]
+        )
+    ]
+    latencies = [
+        statistics.mean(operation_times) if operation_times else float("inf")
+        for operation_times in result_lists["operation_times"]
+    ]
+    # throughputs = [
+    #     successes / sum(operation_times) if operation_times else 0
+    #     for successes, operation_times in zip(
+    #         result_lists["successes"], result_lists["operation_times"]
+    #     )
+    # ]
+    # latencies = [
+    #     statistics.mean(operation_times) if operation_times else float("inf")
+    #     for operation_times in result_lists["operation_times"]
+    # ]
+    error_rates = [
+        e / (r + w) if r + w > 0 else 0
+        for e, r, w in zip(
+            result_lists["errors"], [w[0] for w in workload], [w[1] for w in workload]
+        )
+    ]
 
-        # num_reads *= 10
-        # num_writes *= 10
-        # read_write_ratio = num_reads / num_writes
-
-        all_reads.append(num_reads)
-        all_writes.append(num_writes)
-        all_rw_ratios.append(read_write_ratio)
-
-        # print("***" * 68)
-
-        # with open("autoscaling_logs.txt", "a") as f:
-        #     f.write("**" * 60 + "\n")
-        #     f.write(f"New Workload: {client_id}\n")
-        #     f.write("\n")
-        # print("Workload: ", workload, len(workload))
-        # break
-        start = time.time()
-        # errors, succeses = client_ops(0, workload[0])
-        errors, succeses = client_ops(client_id, workload[client_id])
-        total_time = time.time() - start
-        NUM_OPS = num_reads + num_writes
-        throughput = float(succeses / total_time)  # or succeses or NUM_OPS
-        latency = float(total_time / succeses)  #  or succeses or NUM_OPS
-        error_rate = float(errors / NUM_OPS)
-        throughputs.append(throughput)
-        latencies.append(latency)
-        error_rates.append(error_rate)
-
-        # might remove the transition time or reduce it
+    monitoring_active = False
+    # might remove the transition time or reduce it
     # remove all containers
     remove_all_containers()
+    # monitoring_thread.join()
 
     headers = [
         "Client ID",
@@ -505,18 +525,20 @@ if __name__ == "__main__":
         csvwriter.writerow(headers)
 
         # Write the data for each client
-        for i in range(len(throughputs)):
-            row = [
-                i,
-                all_reads[i],
-                all_writes[i],
-                all_rw_ratios[i],
-                throughputs[i],
-                latencies[i],
-                error_rates[i],
-            ]
-            csvwriter.writerow(row)
 
+        for i, (num_reads, num_writes, rw_ratio) in enumerate(workload):
+            csvwriter.writerow(
+                [
+                    i,
+                    num_reads,
+                    num_writes,
+                    rw_ratio,
+                    throughputs[i],
+                    latencies[i],
+                    error_rates[i],
+                ]
+            )
+    # print("All metrics check")
     # Define additional headers for overall statistics
     overall_stats_headers = [
         "Metric",
@@ -545,6 +567,7 @@ if __name__ == "__main__":
     ]
 
     # Open another CSV file to write the overall statistics
+    # print("OVerall Check")
     with open("autoscaling_overall_stats.csv", "w", newline="") as csvfile:
         csvwriter = csv.writer(csvfile)
 
@@ -558,15 +581,15 @@ if __name__ == "__main__":
             combined_threshold,
             cpu_weight,
             memory_weight,
-            statistics.mean(all_reads),
-            statistics.stdev(all_reads),
-            statistics.variance(all_reads),
-            statistics.mean(all_writes),
-            statistics.stdev(all_writes),
-            statistics.variance(all_writes),
-            statistics.mean(all_rw_ratios),
-            statistics.stdev(all_rw_ratios),
-            statistics.variance(all_rw_ratios),
+            statistics.mean([w[0] for w in workload]),
+            statistics.stdev([w[0] for w in workload]),
+            statistics.variance([w[0] for w in workload]),
+            statistics.mean([w[1] for w in workload]),
+            statistics.stdev([w[1] for w in workload]),
+            statistics.variance([w[1] for w in workload]),
+            statistics.mean([w[2] for w in workload]),
+            statistics.stdev([w[2] for w in workload]),
+            statistics.variance([w[2] for w in workload]),
             statistics.mean(throughputs),
             statistics.stdev(throughputs),
             statistics.variance(throughputs),
@@ -588,6 +611,8 @@ if __name__ == "__main__":
         for index, (cpu, memory) in enumerate(zip(AVG_CPU_USAGES, AVG_MEMORY_USAGES)):
             csvwriter.writerow([index, cpu, memory])
 
+    print("Done")
+
 
 # CAN EVEN CREATE GRAPH OF RESPONSE TIME FOR EACH WORKLOAD OR AS CONTAINRES ARE ADDED. FIGURE THIS OUT
 
@@ -606,3 +631,15 @@ if __name__ == "__main__":
 #     f.write(
 #         f": overall_average_throughput: {overall_average_throughput}, overall_average_latency: {overall_average_latency}, overall_average_errorRate: {overall_average_errorRate}\n"
 #     )
+
+
+if __name__ == "__main__":
+    run_clients()
+
+
+# TEST IT WITH ACUTALLY SEEING REQUIRED AND AVERGAE CPU BEING COMPUTED AND MAYBE BASE THRESHOLD ON THAT TOO
+# MIGHT NEED TO RETEST NONAUOSCALING WITH LOCKS
+# FIX THE ERROR RATE COMPUTATION ERROR
+# PREVIOUS WORKLOAD RETEST MAYBE BUT WORKED WELL IN GENERAL AS AUTOSCALE PERFORMED BETTER THAN NON-AUTOSCALE
+# IMPLEMENT DYNAMIC CHANGING IN THRESHOLD
+# - test if this benefical or if keeping the low threshold as now good in all cases cause if dynamically changed then we may get errors as each container won't be able to handle that i guess
