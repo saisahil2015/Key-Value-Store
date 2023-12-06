@@ -15,6 +15,7 @@ docker = "*"
 requests = "*"
 psutil = "*"
 torch = "*"
+uhashring = "*"
 
 [dev-packages]
 ipykernel = "*"
