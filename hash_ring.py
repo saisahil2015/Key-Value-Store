@@ -15,6 +15,32 @@ class MyHashRing(HashRing):
                 return node
         return None
 
+    def get_node_by_index(self, index):
+        '''
+            get the node by its index
+        '''
+        l = self.get_points()
+        return l[index][1]
+
+    def get_next_n_nodes(self, node_name, n):
+        '''
+            get the next n nodes of a node
+        '''
+        l = self.get_points()
+        total_nodes = len(l)
+        for i, pos in enumerate(l):
+            _hash, node = pos
+
+            if node == node_name:
+                next_n_nodes = []
+                while len(next_n_nodes) < n:
+                    i = (i + 1) % total_nodes
+                    if l[i][1] != node_name and l[i][1] not in next_n_nodes:
+                        next_n_nodes.append(l[i][1])
+                return next_n_nodes
+
+        return None
+
     def get_replicas(self, node_name):
         '''
             get the replicas of a node
@@ -33,6 +59,42 @@ class MyHashRing(HashRing):
                         replicas.append(l[i][1])
                 break
         return replicas
+
+    def get_all_virtual_nodes(self, node_name):
+        '''
+            get all virtual nodes
+        '''
+        virtual_nodes = []
+        l = self.get_points()
+        total_nodes = len(l)
+        for i, pos in enumerate(l):
+            _hash, node = pos
+
+            if node == node_name:
+                virtual_nodes.append(i)
+        return None
+
+    def get_next_node(self, node_name):
+        '''
+            get the next node of a node
+        '''
+        l = self.get_points()
+        total_nodes = len(l)
+        for i, pos in enumerate(l):
+            _hash, node = pos
+
+            if node == node_name:
+                return l[(i + 1) % total_nodes][1]
+        return None
+
+    def print_all_nodes(self):
+        '''
+            print all nodes
+        '''
+        l = self.get_points()
+        for _hash, node in l:
+            print(_hash, node)
+        print("=====================================")
 
 if __name__ == "__main__":
     r = 2
@@ -53,20 +115,17 @@ if __name__ == "__main__":
     }
 
     hr = MyHashRing(nodes)
-    for hash, node in hr.get_points():
-        print(hash, node)
-    print('------------------')
+    hr.print_all_nodes()
 
-    print(hr.get_replicas('asdf'))
+    # add new node into the hash ring
+    hr.add_node('uiop', {
+        'port': 8083,
+        'vnodes': r,
+    })
+    hr.print_all_nodes()
 
-    # my_nodes = l[i:i+2]
-    # for hash, node in my_nodes:
-    #     print(hash, node)
-    # print('------------------')
-    # print(hr.get_server('a'))
-
-
-    # hr.add_node('asdf', {'port': 8081, 'vnodes': 4})
-    # l = hr.get_points()
-    # for hash, node in l:
-    #     print(hash, node)
+    # find all the next nodes of virtual nodes of the new node
+    nodename = hr.get_node('a')
+    print(nodename)
+    next_nodes = hr.get_next_n_nodes(nodename, r)
+    print(next_nodes)
