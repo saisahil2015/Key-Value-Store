@@ -62,6 +62,7 @@ def benchmark(num_operations, num_processes):
         )
         for i in range(num_processes)
     ]
+
     start_time = time.time()
 
     for p in set_processes:
