@@ -2,7 +2,9 @@
 
 ### Instructions for Running the Go Programs for Client-Side Consistent Hashing:
 
+- Navigate to the kv-store folder
 - Run the files using the following command: go run <file name> <port>
+  - The primary file is the main2.go file
 - Run python3 client.py then
 
 ## Intructions for Rust version
