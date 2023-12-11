@@ -7,6 +7,9 @@ name = "pypi"
 flask = "*"
 flask-sqlalchemy = "*"
 requests = "*"
+matplotlib = "*"
+gunicorn = "*"
+pymemcache = "*"
 
 [dev-packages]
 

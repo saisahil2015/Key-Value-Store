@@ -51,6 +51,7 @@ def benchmark(num_operations, num_processes):
         multiprocessing.Process(target=worker, args=(num_operations, latencies_queue, 'get', i))
         for i in range(num_processes)
     ]
+
     start_time = time.time()
 
     for p in set_processes:
@@ -65,12 +66,14 @@ def benchmark(num_operations, num_processes):
 
     total_time = time.time() - start_time
     total_operations = num_operations * num_processes * 2  # Each process does num_operations SET and GET
+
     total_latencies = []
 
     while not latencies_queue.empty():
         total_latencies.append(latencies_queue.get())
 
     average_latency = sum(total_latencies) / len(total_latencies)
+    
     print(f'Total Latency: {sum(total_latencies):.2f} second')
     print(f'Length of latencies: {len(total_latencies):.0f} latencies')
     throughput = total_operations / total_time
