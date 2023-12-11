@@ -1,5 +1,10 @@
 # Key-Value Store
 
+### Instructions for Running the Go Programs for Client-Side Consistent Hashing:
+
+- Run the files using the following command: go run <file name> <port>
+- Run python3 client.py then
+
 ## Intructions for Rust version
 
 - make sure rust and cargo is installed, if not, here is the guide to install
