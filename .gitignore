@@ -1,2 +1,6 @@
 .DS_store
 *.log
+
+target/
+Cargo.lock
+my_db*/
