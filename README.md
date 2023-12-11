@@ -5,6 +5,7 @@
 - Navigate to the kv-store folder
 - Run the files using the following command: go run "file name" "port"
   - The primary file is the main2.go file
+- Make sure to activate the virtual environment using "pipenv shell" and then run the following command to install all dependencies in the environment: "pipenv install"
 - Run python3 client.py then
 
 ## Intructions for Rust version
