@@ -1,6 +1,28 @@
 # Key-Value Store
 
-### Intructions for Running the Program for Client-Side Consistent Hashing with Docker:
+## Intructions for Rust version
 
-- Run the files using the following command: go run <file name> <port>
-- Run python3 client.py then
+- make sure rust and cargo is installed, if not, here is the guide to install
+  https://doc.rust-lang.org/book/ch01-01-installation.html
+
+### Rust with in-memory storage
+
+```shell
+cd rust-kv
+cargo build
+cargo run
+```
+
+### Rust with sleb db
+
+```shell
+cd rust-kv-sleb
+cargo build
+cargo run
+```
+
+### Run the client file
+
+```shell
+python3 client.py
+```
