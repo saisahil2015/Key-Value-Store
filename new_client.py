@@ -122,6 +122,8 @@ import threading
 import random
 import string
 import docker
+import statistics
+import threading
 
 HOST = "127.0.0.1"
 NUM_CLIENTS = 500
@@ -328,24 +330,40 @@ def client_ops(client_id, max_stats):
     # )
 
     # calculate mean, std, var of key and value size
-    mean_key_size, mean_value_size, std_key_size, std_value_size, var_key_size, var_value_size = 0, 0, 0, 0, 0, 0
+    (
+        mean_key_size,
+        mean_value_size,
+        std_key_size,
+        std_value_size,
+        var_key_size,
+        var_value_size,
+    ) = (0, 0, 0, 0, 0, 0)
 
     if len(written_keys) > 0:
-        mean_key_size = sum([len(key) for key in written_keys]) / len(written_keys)
-        mean_value_size = sum([len(value) for value in written_values]) / len(
-            written_values
-        )
-        std_key_size = (
-            sum([(len(key) - mean_key_size) ** 2 for key in written_keys])
-            / len(written_keys)
-        ) ** 0.5
-        std_value_size = (
-            sum([(len(value) - mean_value_size) ** 2 for value in written_values])
-            / len(written_values)
-        ) ** 0.5
-        var_key_size = std_key_size ** 2
-        var_value_size = std_value_size ** 2
+        mean_key_size = statistics.mean([len(key) for key in written_keys])
+        mean_value_size = statistics.mean([len(value) for value in written_values])
 
+        std_key_size = statistics.stdev([len(key) for key in written_keys])
+        std_value_size = statistics.stdev([len(value) for value in written_values])
+
+        var_key_size = statistics.variance([len(key) for key in written_keys])
+        var_value_size = statistics.variance([len(value) for value in written_values])
+
+    # if len(written_keys) > 0:
+    #     mean_key_size = sum([len(key) for key in written_keys]) / len(written_keys)
+    #     mean_value_size = sum([len(value) for value in written_values]) / len(
+    #         written_values
+    #     )
+    #     std_key_size = (
+    #         sum([(len(key) - mean_key_size) ** 2 for key in written_keys])
+    #         / len(written_keys)
+    #     ) ** 0.5
+    #     std_value_size = (
+    #         sum([(len(value) - mean_value_size) ** 2 for value in written_values])
+    #         / len(written_values)
+    #     ) ** 0.5
+    #     var_key_size = std_key_size**2
+    #     var_value_size = std_value_size**2
 
     METRICS_URL = f"http://{HOST}:90"
     metrics = {
@@ -354,10 +372,10 @@ def client_ops(client_id, max_stats):
         "read_write_ratio": NUM_READ_REQUESTS / NUM_WRITE_REQUESTS,
         "mean_key_size": mean_key_size,
         "mean_value_size": mean_value_size,
-        # "std_key_size": std_key_size,
-        # "std_value_size": std_value_size,
-        # "var_key_size": var_key_size,
-        # "var_value_size": var_value_size,
+        "std_key_size": std_key_size,
+        "std_value_size": std_value_size,
+        "var_key_size": var_key_size,
+        "var_value_size": var_value_size,
         "max_cpu_usage": max_cpu_usage,
         "max_memory_usage": max_memory_usage,
     }
@@ -366,10 +384,26 @@ def client_ops(client_id, max_stats):
         print(f"Client-{client_id} Error sending metrics: {response.text}")
 
 
+# Single Client
 def run_clients():
     max_stats = {}
     for client_id in range(NUM_CLIENTS):
         client_ops(client_id, max_stats)
+
+
+# Multithread
+# def run_clients():
+#     max_stats = {}
+#     threads = []
+
+#     for client_id in range(NUM_CLIENTS):
+#         thread = threading.Thread(target=client_ops, args=(client_id, max_stats))
+#         threads.append(thread)
+#         thread.start()
+
+#     # Wait for all threads to complete
+#     for thread in threads:
+#         thread.join()
 
 
 if __name__ == "__main__":

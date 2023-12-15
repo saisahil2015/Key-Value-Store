@@ -520,6 +520,8 @@ def client_ops(client_id, container_id, workload):
     errors = 0
     successes = 0
     operation_times = []
+    written_keys = []
+
     num_write, num_read, _rw_ratio = workload
     server_url = servers[container_id]
     print(f"Client {client_id} starting operations at {server_url}")
@@ -536,16 +538,21 @@ def client_ops(client_id, container_id, workload):
             # operation_time = time.time() - start_time
             # operation_times.append(operation_time)
 
-            if response.status_code == 404:
-                # print(f"Write failed for key {key}")
-                # errors += 1
-                errors += 0
-            else:
-                # print(
-                #     f"Write successful for key {key}, took {operation_time:.4f} seconds"
-                # )
-                successes += 1
-                # operation_times.append(operation_time)
+            if response.status_code != 404:
+                written_keys.append(key)
+
+            successes += 1
+
+            # if response.status_code == 404:
+            #     # print(f"Write failed for key {key}")
+            #     # errors += 1
+            #     errors += 0
+            # else:
+            #     # print(
+            #     #     f"Write successful for key {key}, took {operation_time:.4f} seconds"
+            #     # )
+            #     successes += 1
+            # operation_times.append(operation_time)
         except Exception as e:
             # print(f"Error during PUT request for key {key}: {e}")
             errors += 1
@@ -557,8 +564,12 @@ def client_ops(client_id, container_id, workload):
         operation_times.append(operation_time)
 
     for j in range(num_read):
-        random_key_index = random.randint(0, num_write - 1)
-        key = f"key-{client_id}-{random_key_index}"
+        if not written_keys:  # Check if there are keys to read
+            break
+        random_key_index = random.randint(0, len(written_keys) - 1)
+        key = written_keys[random_key_index]
+        # random_key_index = random.randint(0, num_write - 1)
+        # key = f"key-{client_id}-{random_key_index}"
         start_time = time.time()
 
         try:
@@ -617,7 +628,7 @@ def run_clients():
         "operation_times": [],
     }
 
-    with open("workload.txt", "r") as f:
+    with open("new_workload.txt", "r") as f:
         workload = [line.strip().split(" ") for line in f.readlines()]
         workload = [
             (int(n_write), int(n_read), float(rw_ratio))
