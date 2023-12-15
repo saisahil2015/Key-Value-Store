@@ -176,6 +176,12 @@ def delete_key():
         else:
             return jsonify(error="Key not found"), 404
 
+# Endpoint to get all keys and values
+@app.route("/get_all", methods=["GET"])
+def get_all():
+    with lock:
+        return jsonify(kv_store), 200
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

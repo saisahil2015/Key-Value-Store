@@ -2,29 +2,38 @@ import requests
 import random
 import subprocess
 import docker
-from hashring import HashRing
 import time
 import joblib
 import string
 import statistics
 import csv
 import threading
+from hash_ring import HashRing
+# from hashring import HashRing
+
 
 # globals
 HOST = "localhost"
 combinaitons = ["RI", "WI", "B"]
 
+ring_lock = threading.Lock()    # lock for hash ring, servers, and available_ports
 available_ports = [port for port in range(8080, 9080)]
-servers = {}  # container_id: url
-available_servers = []  # url
-ring = HashRing(available_servers)  # hash ring
+ring = None
+servers = {}  # container_name: port
+vnode_factor = 10
+replica_factor = 1
+
+# available_ports = [port for port in range(8080, 9080)]
+# servers = {}  # container_id: url
+# available_servers = []  # url
+# ring = HashRing(available_servers)  # hash ring
+
 
 # docker client
 docker_client = docker.from_env()
 
 transition = False
 total_containers = 0
-
 
 combined_threshold = 18.53
 cpu_weight = 0.7
@@ -33,7 +42,6 @@ memory_weight = 0.3
 AVG_CPU_USAGES = []
 AVG_MEMORY_USAGES = []
 
-
 key_lengths = []
 value_lengths = []
 
@@ -41,13 +49,62 @@ num_reads_list = []
 num_writes_list = []
 # start = False
 
-
 lock = threading.Lock()
 
 monitoring_active = True
+health_check_active = True
 
+def init_hash_ring():
+    '''
+        Initialize the hash ring with the 2 new containers
+    '''
+    global total_containers
+    global ring
 
+    total_containers += 2
+    print("Initializing hash ring with 2 new containers")
+
+    with ring_lock:
+        current_port_1 = available_ports.pop(0)
+        current_port_2 = available_ports.pop(0)
+
+    container_1 = docker_client.containers.run(
+        "docker-kv-store",
+        detach=True,
+        ports={"80/tcp": current_port_1},
+        mem_limit="15m",  # 10m #15m
+    )
+
+    container_2 = docker_client.containers.run(
+        "docker-kv-store",
+        detach=True,
+        ports={"80/tcp": current_port_2},
+        mem_limit="15m",  # 10m #15m
+    )
+
+    with ring_lock:
+        servers[container_1.name] = current_port_1
+        servers[container_2.name] = current_port_2
+
+        nodes = {
+            container_1.name: {
+                'port': current_port_1,
+                'vnodes': vnode_factor,
+            },
+            container_2.name: {
+                'port': current_port_2,
+                'vnodes': vnode_factor,
+            },
+        }
+
+        ring = HashRing(nodes, hash_fn='ketama', replicas=replica_factor)
+
+    # start health check every 5 seconds
+    health_check()
+
+# add new node into the hash ring
 def launch_new_container():
+
     # time.sleep(2)
     # TRY REMOVING START
     # global start
@@ -55,8 +112,11 @@ def launch_new_container():
     #     time.sleep(2)
     global total_containers
     total_containers += 1
+
     print("New container launched")
-    current_port = available_ports.pop(0)
+
+    with ring_lock:
+        current_port = available_ports.pop(0)
     url = f"http://{HOST}:{current_port}"
 
     # container = docker_client.containers.run(
@@ -85,21 +145,93 @@ def launch_new_container():
     # )
     # removed auto_remove but try with auto_remove and see how it goes
 
-    # time.sleep(3)
+    time.sleep(3)
 
-    container_id = container.id
-    # print(container_id)
+    with ring_lock:
+        servers[container.name] = current_port
+        ring.add_node(container.name, {
+            'port': current_port,
+            'vnodes': vnode_factor,
+        })
 
-    servers[container_id] = url
-    available_servers.append(url)
-    # print(f"Avaliable servers: {available_servers}")
+    # redistribute the keys next n nodes of the new node
+    redistribute_keys(container.name)
 
-    # update new hash ring, TODO: need lock mechinaism
-    global ring
-    ring = HashRing(available_servers)
+def redistribute_keys(name):
+    '''
+        Redistribute the keys to the next n nodes of the given a node
+            name: name of the node to redistribute keys from
+    '''
+    print("redistributing keys")
 
-    # TODO: redistribute the key value pairs among the new hash ring
+    all_kvs = []
+    with ring_lock:
+        for node_info in ring.get_next_n_nodes(name, replica_factor):
+            port = node_info['port']
 
+            # get all keys and values from the node
+            response = requests.get(f"http://{HOST}:{port}/get_all")
+            if response.status_code == 200:
+                all_kvs.append(response.json())
+
+        for all_kv in all_kvs:
+            for k, v in all_kv.items():
+                for node in ring.range(k, replica_factor):
+                    port = node['port']
+                    requests.put(f"http://{HOST}:{port}/store", params={"key": k}, data={"value": v})    
+
+def health_check():
+    '''
+        health check for all containers every 5 seconds
+    '''
+    if not health_check_active:
+        return
+    else:
+        threading.Timer(5, health_check).start()
+
+    containers = docker_client.containers.list(all=True)
+    for container in containers:
+        with ring_lock:
+            if container.name not in servers:
+                continue
+
+        name = container.name
+        port = servers[name]
+        if container.status == "paused" or container.status == "exited":
+            # found a container that is down (pauseed or exited)
+            print("found a container that is down (pauseed or exited)")
+
+            with ring_lock:
+                print("removing the node from hash ring")
+                servers.pop(name)
+                ring.remove_node(name)      # remove node from hash ring
+
+            container.remove(force=True)    # remove container from docker
+            
+            # bring the cotnainer back up with same name and port
+            print("bringing the container back up with same name and port")
+            container = docker_client.containers.run(
+                "docker-kv-store",
+                detach=True,
+                ports={"80/tcp": port},
+                mem_limit="15m",  # 10m #15m
+                name=name,
+            )
+            time.sleep(3)
+
+            with ring_lock:
+                # add the container back to the hash ring
+                print("adding the node back to the hash ring")
+                servers[name] = port
+                ring.add_node(name, {
+                    'port': port,
+                    'vnodes': vnode_factor,
+                })
+
+            # redistrubute the keys next n nodes of the new node
+            redistribute_keys(name)
+
+    print("health check done for all containers")
 
 # TODO: need one that remove just one container (remove container when finish hadnling workload)
 def remove_all_containers():
@@ -225,7 +357,7 @@ def monitor_containers():
         num_reads_list.clear()
         num_writes_list.clear()
 
-        containers = docker_client.containers.list()
+        containers = docker_client.containers.list(all=True)
 
         total_cpu_usage, total_memory_usage = 0, 0
         total_memory_limit = 0
@@ -319,8 +451,12 @@ def client_ops(client_id, workload):
         # seed = f"key-{client_id}-{i}"
         # key = generate_random_string(random.randint(1, 100), seed)
         # value = generate_random_string(random.randint(1, 100))
-
-        server_url = ring.get_node(key)
+        
+        server_urls = []
+        with ring_lock:
+            for node in ring.range(key, replica_factor):
+                port = node["port"]
+                server_urls.append(f"http://{HOST}:{port}")
 
         # print(f"Write checkpoint - Server URL: {server_url}, Key: {key} Value: {value}")
 
@@ -332,19 +468,19 @@ def client_ops(client_id, workload):
         start_time = time.time()
 
         try:
-            response = requests.put(
-                f"{server_url}/store", params={"key": key}, data={"value": value}
-            )
-            # print(f"PUT response: {response.status_code}, {response.text}")
-            # with open("autoscaling_logs.txt", "a") as f:
-            #     f.write(f"PUT response: {response.status_code}, {response.text}\n")
-            if response.status_code == 404:
-                errors += 1
-                # print("**" * 68)
-                # print("Put Error")
-                # break
-            else:
+            success_count, error_count = 0, 0
+            for server_url in server_urls:
+                response = requests.put(
+                    f"{server_url}/store", params={"key": key}, data={"value": value}
+                )
+                if response.status_code == 404:
+                    error_count += 1
+                else:
+                    success_count += 1
+            if success_count == replica_factor:
                 successes += 1
+            else:
+                errors += 1
             written_keys.append(key)
         except Exception as e:
             errors += 1
@@ -366,7 +502,9 @@ def client_ops(client_id, workload):
         random_key_index = random.randint(0, len(written_keys) - 1)
         key = written_keys[random_key_index]
 
-        server_url = ring.get_node(key)
+        with lock:
+            node = ring.get(key)    
+        server_url = f"http://{HOST}:{node['port']}"
 
         # print(f"Get checkpoint - Server URL: {server_url}, Key: {key}")
         # with open("autoscaling_logs.txt", "a") as f:
@@ -417,6 +555,7 @@ def client_thread(client_id, workload, result_lists):
 def run_clients():
     # run one container
     global monitoring_active
+    global health_check_active
 
     # LAUNCHING TWO CONTAINRES AT BEGNINNG MADE NO DIFFERENCE
     # global start
@@ -426,9 +565,8 @@ def run_clients():
         "successes": [],
         "operation_times": [],
     }
-    # start = True
-    launch_new_container()
-    # start = False
+
+    init_hash_ring()
     # launch_new_container()
     monitor_containers()
 
@@ -443,7 +581,8 @@ def run_clients():
     # read workload from file
 
     # Worked well with workload.txt
-    with open("new_workload.txt", "r") as f:
+    with open("workload.txt", "r") as f:
+    # with open("new_workload.txt", "r") as f:
         workload = f.readlines()
         workload = [line.strip().split(" ") for line in workload]
         workload = [
@@ -501,6 +640,7 @@ def run_clients():
         )
     ]
 
+    health_check_active = False
     monitoring_active = False
     # might remove the transition time or reduce it
     # remove all containers
