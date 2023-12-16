@@ -17,12 +17,12 @@ for row in rows:
     print(row)
 
 # Write to CSV
-with open('new_data.csv', 'w', newline='') as csv_file:
-    csv_writer = csv.writer(csv_file, delimiter=',')
-    
+with open("updated_heavier_data.csv", "w", newline="") as csv_file:
+    csv_writer = csv.writer(csv_file, delimiter=",")
+
     header = [description[0] for description in cursor.description]
     csv_writer.writerow(header)
-    
+
     csv_writer.writerows(rows)
 
 # Close connection

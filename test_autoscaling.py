@@ -268,7 +268,8 @@ def get_resource_usage_prediction(
     var_key_size,
     var_value_size,
 ):
-    model = joblib.load("models/lin_reg_best.joblib")  # change model file here
+    model = joblib.load("newData_models/lin_reg_best.joblib")  # change model file here
+    print(f"Check num_read: {num_read} num_write: {num_write}")
     prediction = model.predict(
         [
             [
@@ -284,6 +285,7 @@ def get_resource_usage_prediction(
             ]
         ]
     )
+    print("Prediction Check: ", prediction)
     pred_cpu, pred_memory = prediction[0][0], prediction[0][1]
     return pred_cpu, pred_memory
 
@@ -392,7 +394,7 @@ def monitor_containers():
 
         with open("autoscaling_logs.txt", "a") as f:
             f.write(
-                f"Autoscale checkpint combined_memory_usage: {required_memory + avg_memory_usage } combined_cpu_usage: {required_cpu + avg_cpu_usage}\n"
+                f"Autoscale checkpint Required Memory: {required_memory} Avg Memory Usage: {avg_memory_usage} Required CPU: {required_cpu} Avg CPU Usage: {avg_cpu_usage} combined_memory_usage: {required_memory + avg_memory_usage } combined_cpu_usage: {required_cpu + avg_cpu_usage}\n"
             )
 
         if (
@@ -501,27 +503,20 @@ def client_ops(client_id, workload):
                 response = requests.put(
                     f"{server_url}/store", params={"key": key}, data={"value": value}
                 )
-                if response.status_code == 404:
-                    error_count += 1
+                if response.status_code != 404:
+                    success_count += 1
 
             if success_count == replica_factor:
                 successes += 1
+                written_keys.append(key)
+
                 if recovering == 0:
                     successes_before_recover += 1
                 elif recovering == 1:
                     successes_during_recover += 1
                 else:
                     successes_after_recover += 1
-            else:
-                errors += 1
-                if recovering == 0:
-                    errors_before_recover += 1
-                elif recovering == 1:
-                    errors_during_recover += 1
-                else:
-                    errors_after_recover += 1
 
-            written_keys.append(key)
         except Exception as e:
             errors += 1
             if recovering == 0:
@@ -977,3 +972,13 @@ if __name__ == "__main__":
 # PREVIOUS WORKLOAD RETEST MAYBE BUT WORKED WELL IN GENERAL AS AUTOSCALE PERFORMED BETTER THAN NON-AUTOSCALE
 # IMPLEMENT DYNAMIC CHANGING IN THRESHOLD
 # - test if this benefical or if keeping the low threshold as now good in all cases cause if dynamically changed then we may get errors as each container won't be able to handle that i guess
+# Test for latencies as being divided by operations or not: already doing that
+# IMPLEMENT ML MODEL OR SCHEDULER FOR GETTING THRESHOLD
+# TEST WITH UPDATED/NEW THRESHOLD WITH NEW WORKLOAD AND SEE IF IT REDUCES ERRORS
+# NEED TO TEST IT WITH BOTH VARIABLE KEY SIZE AND VALUE SIZE AND DIFFERENT KEY AND VALUE SIZES. CURRENTLY DOING IT FOR SAME
+# TEST WITH YCSRB LIKE BENCHMARKS FOR OVERALL THROUGHPUT AND LATENCY
+# try having throughput as throughput = successes / mean(operation_times)
+# WAS USING OLD STATS MEAN AND STD FOR NEW WORKLOAD TESTING. GENERATE NEW .CSV FILE WITH UPDATED STATS MEAN AND STD AND USE THEN THAT FOR TRAINING THE MODEL WITH NEW WORKLOAD
+# Test it with Redis/Memcache
+# Check PROFESSOR'S WAY OF COMPUTING THROUGHPUT AND LATENCY AND MAKE CHANGES IF NECESSARY
+# Batching testing and testing with more reads and writes vs otherwise
