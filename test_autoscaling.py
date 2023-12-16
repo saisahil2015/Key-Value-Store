@@ -20,8 +20,9 @@ ring_lock = threading.Lock()    # lock for hash ring, servers, and available_por
 available_ports = [port for port in range(8080, 9080)]
 ring = None
 servers = {}  # container_name: port
-vnode_factor = 10
-replica_factor = 1
+vnode_factor = 5
+replica_factor = 2
+recovering = 0 # 0: before recovering, 1: recovering, 2: after recovering
 
 # available_ports = [port for port in range(8080, 9080)]
 # servers = {}  # container_id: url
@@ -110,8 +111,13 @@ def launch_new_container():
     # global start
     # if start:
     #     time.sleep(2)
+    global recovering
     global total_containers
     total_containers += 1
+
+    while recovering == 1:
+        print("waiting for recovery to finish")
+        time.sleep(1)
 
     print("New container launched")
 
@@ -166,7 +172,7 @@ def redistribute_keys(name):
 
     all_kvs = []
     with ring_lock:
-        for node_info in ring.get_next_n_nodes(name, replica_factor):
+        for node_info in ring.get_next_n_nodes(name, replica_factor - 1):
             port = node_info['port']
 
             # get all keys and values from the node
@@ -178,12 +184,16 @@ def redistribute_keys(name):
             for k, v in all_kv.items():
                 for node in ring.range(k, replica_factor):
                     port = node['port']
-                    requests.put(f"http://{HOST}:{port}/store", params={"key": k}, data={"value": v})    
+                    response = requests.put(f"http://{HOST}:{port}/store", params={"key": k}, data={"value": v})    
+
+        print("finished redistributing keys")
 
 def health_check():
     '''
         health check for all containers every 5 seconds
     '''
+    global recovering
+
     if not health_check_active:
         return
     else:
@@ -202,6 +212,7 @@ def health_check():
             print("found a container that is down (pauseed or exited)")
 
             with ring_lock:
+                recovering = 1
                 print("removing the node from hash ring")
                 servers.pop(name)
                 ring.remove_node(name)      # remove node from hash ring
@@ -230,6 +241,9 @@ def health_check():
 
             # redistrubute the keys next n nodes of the new node
             redistribute_keys(name)
+            
+            with ring_lock:
+                recovering = 2
 
     print("health check done for all containers")
 
@@ -362,6 +376,8 @@ def monitor_containers():
         total_cpu_usage, total_memory_usage = 0, 0
         total_memory_limit = 0
         for container in containers:
+            if container.status != "running":
+                continue
             stats = container.stats(stream=False)
             cpu_usage, memory_usage, memory_limit = get_cpu_memory_usage(stats)
             total_cpu_usage += cpu_usage
@@ -418,9 +434,21 @@ def client_ops(client_id, workload):
         num_writes_list.append(num_write)
     written_keys = []
     operation_times = []
+
+    operation_times_before_recover = []
+    operation_times_during_recover = []
+    operation_times_after_recover = []
+
     need_new_container = False
     errors = 0
     successes = 0
+
+    errors_before_recover = 0
+    successes_before_recover = 0
+    errors_during_recover = 0
+    successes_during_recover = 0
+    errors_after_recover = 0
+    successes_after_recover = 0
 
     # predict the container cpu and memory usage
     # launch new container if needed
@@ -475,20 +503,46 @@ def client_ops(client_id, workload):
                 )
                 if response.status_code == 404:
                     error_count += 1
-                else:
-                    success_count += 1
+
             if success_count == replica_factor:
                 successes += 1
+                if recovering == 0:
+                    successes_before_recover += 1
+                elif recovering == 1:
+                    successes_during_recover += 1
+                else:
+                    successes_after_recover += 1
             else:
                 errors += 1
+                if recovering == 0:
+                    errors_before_recover += 1
+                elif recovering == 1:
+                    errors_during_recover += 1
+                else:
+                    errors_after_recover += 1
+
             written_keys.append(key)
         except Exception as e:
             errors += 1
+            if recovering == 0:
+                errors_before_recover += 1
+            elif recovering == 1:
+                errors_during_recover += 1
+            else:
+                errors_after_recover += 1
+
             # launch_new_container()
             # print(f"Error during PUT request: {e}")
 
         operation_time = time.time() - start_time
         operation_times.append(operation_time)
+
+        if recovering == 0:
+            operation_times_before_recover.append(operation_time)
+        elif recovering == 1:
+            operation_times_during_recover.append(operation_time)
+        else:
+            operation_times_after_recover.append(operation_time)
 
     for j in range(num_read):
         if not written_keys:  # Check if there are keys to read
@@ -519,11 +573,24 @@ def client_ops(client_id, workload):
             #     f.write(f"GET response: {response.status_code}, {response.text}\n")
             if response.status_code == 404:
                 errors += 1
+                if recovering == 0:
+                    errors_before_recover += 1
+                elif recovering == 1:
+                    errors_during_recover += 1
+                else:
+                    errors_after_recover += 1
                 # print("**" * 68)
                 # print("Get Error")
                 # break
             else:
                 successes += 1
+                if recovering == 0:
+                    successes_before_recover += 1
+                elif recovering == 1:
+                    successes_during_recover += 1
+                else:
+                    successes_after_recover += 1
+
         except Exception as e:
             errors += 1
             # print(f"Error during GET request: {e}")
@@ -532,12 +599,31 @@ def client_ops(client_id, workload):
         operation_time = time.time() - start_time
         operation_times.append(operation_time)
 
-    return errors, successes, operation_times
+        if recovering == 0:
+            operation_times_before_recover.append(operation_time)
+        elif recovering == 1:
+            operation_times_during_recover.append(operation_time)
+        else:
+            operation_times_after_recover.append(operation_time)
+
+    return (
+        errors, successes, operation_times, 
+        operation_times_before_recover, operation_times_during_recover, operation_times_after_recover, 
+        errors_before_recover, errors_during_recover, errors_after_recover,
+        successes_before_recover, successes_during_recover, successes_after_recover,
+    )
 
 
-def client_thread(client_id, workload, result_lists):
+def client_thread(client_id, workload, result_lists, recover_result_lists):
     print(f"Starting client thread {client_id}")
-    errors, successes, operation_times = client_ops(client_id, workload)
+    # errors, successes, operation_times = client_ops(client_id, workload)
+    (
+        errors, successes, operation_times, 
+        operation_times_before_recover, operation_times_during_recover, operation_times_after_recover, 
+        errors_before_recover, errors_during_recover, errors_after_recover,
+        successes_before_recover, successes_during_recover, successes_after_recover,
+    ) = client_ops(client_id, workload)
+
     # print("Opertaions times: ", operation_times)
 
     with lock:
@@ -546,6 +632,28 @@ def client_thread(client_id, workload, result_lists):
         result_lists["operation_times"].append(
             operation_times
         )  # Collect all operation times
+
+        # before_recover
+        recover_result_lists["before_recover"]["errors"].append(errors_before_recover)
+        recover_result_lists["before_recover"]["successes"].append(successes_before_recover)
+        recover_result_lists["before_recover"]["operation_times"].append(
+            operation_times_before_recover
+        )
+
+        # during_recover
+        recover_result_lists["during_recover"]["errors"].append(errors_during_recover)
+        recover_result_lists["during_recover"]["successes"].append(successes_during_recover)
+        recover_result_lists["during_recover"]["operation_times"].append(
+            operation_times_during_recover
+        )
+
+        # after_recover
+        recover_result_lists["after_recover"]["errors"].append(errors_after_recover)
+        recover_result_lists["after_recover"]["successes"].append(successes_after_recover)
+        recover_result_lists["after_recover"]["operation_times"].append(
+            operation_times_after_recover
+        )
+
     # print(f"Client {client_id} Errors: ", result_lists["errors"])
     # print(f"Client {client_id} Successes: ", result_lists["successes"])
     # print(f"Client {client_id} Operation Times: ", result_lists["operation_times"])
@@ -564,6 +672,24 @@ def run_clients():
         "errors": [],
         "successes": [],
         "operation_times": [],
+    }
+
+    recover_result_lists = {
+        "before_recover": {
+            "errors": [],
+            "successes": [],
+            "operation_times": [],
+        },
+        "during_recover": {
+            "errors": [],
+            "successes": [],
+            "operation_times": [],
+        },
+        "after_recover": {
+            "errors": [],
+            "successes": [],
+            "operation_times": [],
+        },
     }
 
     init_hash_ring()
@@ -604,7 +730,7 @@ def run_clients():
 
     for client_id, wl in enumerate(workload):
         thread = threading.Thread(
-            target=client_thread, args=(client_id, wl, result_lists)
+            target=client_thread, args=(client_id, wl, result_lists, recover_result_lists)
         )
         threads.append(thread)
         # print(f"Starting thread for client {client_id}")
@@ -638,6 +764,42 @@ def run_clients():
         for e, r, w in zip(
             result_lists["errors"], [w[0] for w in workload], [w[1] for w in workload]
         )
+    ]
+
+    # before_recover
+    before_recover_throughputs = [
+        successes / sum(operation_times) if operation_times else 0
+        for successes, operation_times in zip(
+            recover_result_lists["before_recover"]["successes"], recover_result_lists["before_recover"]["operation_times"]
+        )
+    ]
+    before_recover_latencies = [
+        statistics.mean(operation_times) if operation_times else float("inf")
+        for operation_times in recover_result_lists["before_recover"]["operation_times"]
+    ]
+
+    # during_recover
+    during_recover_throughputs = [
+        successes / sum(operation_times) if operation_times else 0
+        for successes, operation_times in zip(
+            recover_result_lists["during_recover"]["successes"], recover_result_lists["during_recover"]["operation_times"]
+        )
+    ]
+    during_recover_latencies = [
+        statistics.mean(operation_times) if operation_times else float("inf")
+        for operation_times in recover_result_lists["during_recover"]["operation_times"]
+    ]
+
+    # after_recover
+    after_recover_throughputs = [
+        successes / sum(operation_times) if operation_times else 0
+        for successes, operation_times in zip(
+            recover_result_lists["after_recover"]["successes"], recover_result_lists["after_recover"]["operation_times"]
+        )
+    ]
+    after_recover_latencies = [
+        statistics.mean(operation_times) if operation_times else float("inf")
+        for operation_times in recover_result_lists["after_recover"]["operation_times"]
     ]
 
     health_check_active = False
@@ -678,6 +840,38 @@ def run_clients():
                     error_rates[i],
                 ]
             )
+
+    recover_headers = ["Client ID", "Throughput", "Latency"]
+    with open("autoscaling_client_metrics_before_recover.csv", "w", newline="") as csvfile:
+        csvwriter = csv.writer(csvfile)
+
+        # Write the header
+        csvwriter.writerow(recover_headers)
+
+        # Write the data for each client
+        for i, (num_reads, num_writes, rw_ratio) in enumerate(workload):
+            csvwriter.writerow([i, before_recover_throughputs[i], before_recover_latencies[i]])
+
+    with open("autoscaling_client_metrics_during_recover.csv", "w", newline="") as csvfile:
+        csvwriter = csv.writer(csvfile)
+
+        # Write the header
+        csvwriter.writerow(recover_headers)
+
+        # Write the data for each client
+        for i, (num_reads, num_writes, rw_ratio) in enumerate(workload):
+            csvwriter.writerow([i, during_recover_throughputs[i], during_recover_latencies[i]])
+
+    with open("autoscaling_client_metrics_after_recover.csv", "w", newline="") as csvfile:
+        csvwriter = csv.writer(csvfile)
+
+        # Write the header
+        csvwriter.writerow(recover_headers)
+
+        # Write the data for each client
+        for i, (num_reads, num_writes, rw_ratio) in enumerate(workload):
+            csvwriter.writerow([i, after_recover_throughputs[i], after_recover_latencies[i]])
+    
     # print("All metrics check")
     # Define additional headers for overall statistics
     overall_stats_headers = [
