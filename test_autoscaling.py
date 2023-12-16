@@ -824,6 +824,12 @@ def run_clients():
         # Write the data for each client
 
         for i, (num_reads, num_writes, rw_ratio) in enumerate(workload):
+            e_i = None
+            try:
+                e_i = error_rates[i]
+            except:
+                e_i = -1
+
             csvwriter.writerow(
                 [
                     i,
@@ -832,7 +838,7 @@ def run_clients():
                     rw_ratio,
                     throughputs[i],
                     latencies[i],
-                    error_rates[i],
+                    e_i
                 ]
             )
 

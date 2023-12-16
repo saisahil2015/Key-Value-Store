@@ -16,6 +16,7 @@ requests = "*"
 psutil = "*"
 torch = "*"
 uhashring = "*"
+pandas = "*"
 
 [dev-packages]
 ipykernel = "*"
