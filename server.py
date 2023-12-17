@@ -134,21 +134,31 @@ app = Flask(__name__)
 
 # In-memory key-value store
 kv_store = {}
+replica_kv_store = {}
 lock = threading.Lock()
 
 
 # Endpoint to set the value for a key
 @app.route("/store", methods=["PUT"])
 def set_value():
+    mode = request.args.get("mode")     # primary or replica
     new_key = request.args.get("key")
     new_value = request.form["value"]
 
     with lock:
-        if new_key in kv_store:
-            return jsonify(error="Key already exists"), 404
+        if mode == "primary":
+            if new_key in kv_store:
+                return jsonify(error="Key already exists"), 404
 
-        kv_store[new_key] = new_value
-        return jsonify(success=True), 201
+            kv_store[new_key] = new_value
+            return jsonify(success=True), 201
+        
+        else:
+            if new_key in replica_kv_store:
+                return jsonify(error="Key already exists"), 404
+
+            replica_kv_store[new_key] = new_value
+            return jsonify(success=True), 201
 
 
 # Endpoint to get the value for a key
@@ -176,12 +186,27 @@ def delete_key():
         else:
             return jsonify(error="Key not found"), 404
 
-# Endpoint to get all keys and values
+# Endpoint to get all keys and values (primary or replica)
 @app.route("/get_all", methods=["GET"])
 def get_all():
+    mode = request.args.get("mode")     # primary or replica
     with lock:
-        return jsonify(kv_store), 200
+        if mode == "primary":
+            return jsonify(kv_store), 200
+        else:
+            return jsonify(replica_kv_store), 200
 
+# Endpoint to remove all keys and values (primary or replica)
+@app.route("/remove_all", methods=["DELETE"])
+def remove_all():
+    mode = request.args.get("mode")     # primary or replica
+    with lock:
+        if mode == "primary":
+            kv_store.clear()
+            return jsonify(success=True), 200
+        else:
+            replica_kv_store.clear()
+            return jsonify(success=True), 200
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

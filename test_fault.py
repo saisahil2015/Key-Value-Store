@@ -20,10 +20,13 @@ if __name__ == "__main__":
 
     # get all keys and values
     all_kvs = None
-    response = requests.get(f"http://localhost:{port}/get_all")
+    response = requests.get(f"http://localhost:{port}/get_all", params={"mode": "primary"})
     if response.status_code == 200:
         all_kvs = response.json()
         print(f"Received {len(all_kvs.keys())} keys value pairs")
+
+        for key, value in all_kvs.items():
+            print(f"{key} {value}")
     else:
         print("Error getting all keys and values")
         exit(1)
@@ -32,9 +35,15 @@ if __name__ == "__main__":
     container = docker_client.containers.get(container_name)
     container.stop()
 
-    time.sleep(15)
-
+    while True:
+        user_input = input("Enter 'y' to start testing: ")
+        if user_input == "y":
+            break
+        else:
+            print("Invalid input")
+    
     # test all the key value
+    print("testing all keys and values")
     success_count = 0 
     error_count = 0
     for key, value in all_kvs.items():
