@@ -19,5 +19,10 @@ class Workload(db.Model):
     std_value_size = db.Column(db.Float)
     var_key_size = db.Column(db.Float)
     var_value_size = db.Column(db.Float)
+    # New columns for engineered features
+    read_write_product = db.Column(db.Float)
+    std_size_ratio = db.Column(db.Float)
+    mean_key_squared = db.Column(db.Float)
+    log_num_read = db.Column(db.Float)
     max_cpu_usage = db.Column(db.Float)
     max_memory_usage = db.Column(db.Float)

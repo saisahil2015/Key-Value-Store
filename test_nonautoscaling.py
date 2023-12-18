@@ -484,7 +484,7 @@ import random
 import csv
 import statistics
 import threading
-
+import string
 
 HOST = "127.0.0.1"
 
@@ -492,6 +492,8 @@ docker_client = docker.from_env()
 # available_ports = [port for port in range(8081, 9080)]
 port = 8080
 servers = {}
+
+random.seed(123)
 
 
 def start_docker_container(client_id):
@@ -516,17 +518,34 @@ def start_docker_container(client_id):
     return container
 
 
+def generate_random_string(length, seed=None):
+    # random.seed(seed)
+    return "".join(random.choices(string.ascii_letters + string.digits, k=length))
+
+
 def client_ops(client_id, container_id, workload):
     errors = 0
     successes = 0
     operation_times = []
     written_keys = []
+    total_ops = 0
 
     num_write, num_read, _rw_ratio = workload
     server_url = servers[container_id]
     print(f"Client {client_id} starting operations at {server_url}")
 
     for i in range(num_write):
+        # key_seed = f"key-{client_id}-{i}"
+        # key = generate_random_string(random.randint(1, 250), key_seed)
+        # val_seed = f"value-{client_id}-{i}"
+        # value = generate_random_string(random.randint(1, 250), val_seed)
+
+        # if i % 10 == 0:
+        #     with open("non_autoscaling_logs.txt", "a") as f:
+        #         f.write((f"Key size: {len(key)} Value size: {len(value)}\n"))
+
+        # print(f"Key: {key} Value: {value}")
+
         key = f"key-{client_id}-{i}"
         value = f"value-{client_id}-{i}"
         start_time = time.time()
@@ -542,6 +561,7 @@ def client_ops(client_id, container_id, workload):
                 written_keys.append(key)
 
             successes += 1
+            total_ops += 1
 
             # if response.status_code == 404:
             #     # print(f"Write failed for key {key}")
@@ -554,22 +574,34 @@ def client_ops(client_id, container_id, workload):
             #     successes += 1
             # operation_times.append(operation_time)
         except Exception as e:
+            # with open("non-autoscaling_logs.txt", "a") as f:
+            #     f.write(f"Error during PUT request for key {key}: {e}")
+            #     f.write(f"\n")
+
             # print(f"Error during PUT request for key {key}: {e}")
             errors += 1
+            total_ops += 1
             # operation_time = (
             #     time.time() - start_time
             # )  # Calculate the operation time even on exception
             # operation_times.append(operation_time)
         operation_time = time.time() - start_time
         operation_times.append(operation_time)
-
+    # keyTested = []
     for j in range(num_read):
         if not written_keys:  # Check if there are keys to read
             break
-        random_key_index = random.randint(0, len(written_keys) - 1)
-        key = written_keys[random_key_index]
-        # random_key_index = random.randint(0, num_write - 1)
-        # key = f"key-{client_id}-{random_key_index}"
+        # random_key_index = random.randint(0, len(written_keys) - 1)
+        # key = written_keys[random_key_index]
+        # key = written_keys[j]
+        # if key in keyTested:
+        #     with open("non-autoscaling_logs.txt", "a") as f:
+        #         f.write(f"Key already tested: {key}")
+        #         f.write(f"\n")
+        # else:
+        #     keyTested.append(key)
+        random_key_index = random.randint(0, num_write - 1)
+        key = f"key-{client_id}-{random_key_index}"
         start_time = time.time()
 
         try:
@@ -578,18 +610,27 @@ def client_ops(client_id, container_id, workload):
             # operation_times.append(operation_time)
 
             if response.status_code == 404:
+                # with open("non-autoscaling_logs.txt", "a") as f:
+                #     f.write(f"Read failed for key {key}")
+                #     f.write(f"\n")
                 # print(f"Read failed for key {key}")
                 errors += 1
+                total_ops += 1
             else:
                 # print(
                 #     f"Read successful for key {key}, took {operation_time:.4f} seconds"
                 # )
                 successes += 1
+                total_ops += 1
                 # operation_times.append(operation_time)
 
         except Exception as e:
+            # with open("non-autoscaling_logs.txt", "a") as f:
+            #     f.write(f"Error during GET request for key {key}: {e}")
+            #     f.write(f"\n")
             # print(f"Error during GET request for key {key}: {e}")
             errors += 1
+            total_ops += 1
             # operation_time = (
             #     time.time() - start_time
             # )  # Calculate the operation time even on exception
@@ -598,25 +639,32 @@ def client_ops(client_id, container_id, workload):
         operation_times.append(operation_time)
 
     print(f"Client {client_id} finished operations")
-    return errors, successes, operation_times
+    return errors, successes, operation_times, total_ops
 
 
 def client_thread(client_id, container_id, workload, result_lists):
     # print(f"Starting client thread {client_id}")
-    errors, successes, operation_times = client_ops(client_id, container_id, workload)
+    errors, successes, operation_times, total_ops = client_ops(
+        client_id, container_id, workload
+    )
     # print("Opertaions times: ", operation_times)
     result_lists["errors"].append(errors)
     result_lists["successes"].append(successes)
-    result_lists["operation_times"].append(
-        operation_times
-    )  # Collect all operation times
+    result_lists["operation_times"].append(operation_times)
+    result_lists["total_ops"].append(total_ops)
+
+    # Collect all operation times
     # print(f"Client {client_id} Errors: ", result_lists["errors"])
     # print(f"Client {client_id} Successes: ", result_lists["successes"])
     # print(f"Client {client_id} Operation Times: ", result_lists["operation_times"])
     # print(f"Finished client thread {client_id}")
 
 
-def run_clients():
+def run_clients_nonAutoscaling(
+    WORKLOAD_TYPE,
+    STATS_FILE_NAME,
+    OVERALL_STATS_FILE_NAME,
+):
     print("Initializing run_clients")
     container = start_docker_container(0)
     # time.sleep(2)  # Allow time for container to start
@@ -626,13 +674,14 @@ def run_clients():
         "errors": [],
         "successes": [],
         "operation_times": [],
+        "total_ops": [],
     }
 
-    with open("new_workload.txt", "r") as f:
+    with open(WORKLOAD_TYPE, "r") as f:
         workload = [line.strip().split(" ") for line in f.readlines()]
         workload = [
             (int(n_write), int(n_read), float(rw_ratio))
-            for n_write, n_read, rw_ratio in workload
+            for n_read, n_write, rw_ratio in workload
         ]
 
     for client_id, wl in enumerate(workload):
@@ -671,20 +720,26 @@ def run_clients():
 
     error_rates = []
 
-    for errors, num_writes, num_reads in zip(
-        result_lists["errors"], [w[0] for w in workload], [w[1] for w in workload]
+    for errors, num_reads, num_writes, total_ops in zip(
+        result_lists["errors"],
+        [w[0] for w in workload],
+        [w[1] for w in workload],
+        result_lists["total_ops"],
     ):
-        total_operations = num_writes + num_reads
-        if total_operations > 0:
-            print("Total operations: ", total_operations)
-            print("Errors: ", errors)
-            error_rate = errors / total_operations
+        # total_operations = num_writes + num_reads
+        if total_ops > 0:
+            # print(
+            #     f"Num Reads: {num_reads} Num Writes: {num_writes} Total operations: {total_ops}"
+            # )
+            # print("Errors: ", errors)
+            error_rate = errors / total_ops
+            # print("Error Rate: ", error_rate)
         else:
             error_rate = 0
         error_rates.append(error_rate)
 
     # Write results to CSV
-    with open("non-autoscaling_client_metrics.csv", "w", newline="") as csvfile:
+    with open(STATS_FILE_NAME, "w", newline="") as csvfile:
         csvwriter = csv.writer(csvfile)
         csvwriter.writerow(
             [
@@ -734,7 +789,7 @@ def run_clients():
         "Variance Error Rate",
     ]
 
-    with open("non-autoscaling_overall_stats.csv", "w", newline="") as csvfile:
+    with open(OVERALL_STATS_FILE_NAME, "w", newline="") as csvfile:
         csvwriter = csv.writer(csvfile)
         csvwriter.writerow(overall_stats_headers)
         csvwriter.writerow(
@@ -763,8 +818,8 @@ def run_clients():
     print("Data written to CSV files successfully")
 
 
-if __name__ == "__main__":
-    run_clients()
+# if __name__ == "__main__":
+#     run_clients()
 
 
 # Computing throughput and latency by computing time for each opeartion and averaging it over for each client

@@ -15,3 +15,8 @@ RUN pip install -r requirements.txt
 EXPOSE 80
 
 CMD ["gunicorn", "server:app", "-b", "0.0.0.0:80"]
+
+
+
+
+# Helps in resolving errors with docker: docker --log-level debug pull python:3.10-alpine

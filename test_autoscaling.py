@@ -26,9 +26,11 @@ transition = False
 total_containers = 0
 
 
-combined_threshold = 18.53
-cpu_weight = 0.7
-memory_weight = 0.3
+combined_threshold = 1.8
+# combined_threshold = 1060.27
+# combined_threshold = 18.53
+# cpu_weight = 0.5
+# memory_weight = 0.5
 
 AVG_CPU_USAGES = []
 AVG_MEMORY_USAGES = []
@@ -39,7 +41,15 @@ value_lengths = []
 
 num_reads_list = []
 num_writes_list = []
+
+
+thresholdHistory = []
+cpuThreshold = 1.8
+save_cpuThreshold = []
+
 # start = False
+
+random.seed(123)
 
 
 lock = threading.Lock()
@@ -122,8 +132,8 @@ def get_resource_usage_prediction(
     var_key_size,
     var_value_size,
 ):
-    model = joblib.load("newData_models/lin_reg_best.joblib")  # change model file here
-    print(f"Check num_read: {num_read} num_write: {num_write}")
+    model = joblib.load("oldData_models/lin_reg_best.joblib")  # change model file here
+    # print(f"Check num_read: {num_read} num_write: {num_write}")
     prediction = model.predict(
         [
             [
@@ -139,7 +149,7 @@ def get_resource_usage_prediction(
             ]
         ]
     )
-    print("Prediction Check: ", prediction)
+    # print("Prediction Check: ", prediction)
     pred_cpu, pred_memory = prediction[0][0], prediction[0][1]
     return pred_cpu, pred_memory
 
@@ -166,6 +176,9 @@ def get_cpu_memory_usage(stats):
 def monitor_containers():
     # print("Monitor Check")
     global monitoring_active
+    global thresholdHistory
+    global cpuThreshold
+    global save_cpuThreshold
 
     if not monitoring_active:
         return
@@ -244,14 +257,26 @@ def monitor_containers():
         AVG_CPU_USAGES.append(avg_cpu_usage)
         AVG_MEMORY_USAGES.append(avg_memory_usage)
 
-        with open("autoscaling_logs.txt", "a") as f:
-            f.write(
-                f"Autoscale checkpint Required Memory: {required_memory} Avg Memory Usage: {avg_memory_usage} Required CPU: {required_cpu} Avg CPU Usage: {avg_cpu_usage} combined_memory_usage: {required_memory + avg_memory_usage } combined_cpu_usage: {required_cpu + avg_cpu_usage}\n"
-            )
+        if len(thresholdHistory) < 5:
+            thresholdHistory.append(required_cpu + avg_cpu_usage)
+        else:
+            cpuThreshold = statistics.mean(thresholdHistory)
+            thresholdHistory.pop(0)
+            thresholdHistory.append(required_cpu + avg_cpu_usage)
+
+        save_cpuThreshold.append(cpuThreshold)
+
+        # print("Threshold History: ", thresholdHistory)
+
+        # with open("autoscaling_logs.txt", "a") as f:
+        #     f.write(f"Updated CPU Threshold: {cpuThreshold}\n")
+        #     f.write(
+        #         f"Autoscale checkpint Required Memory: {required_memory} Avg Memory Usage: {avg_memory_usage} Required CPU: {required_cpu} Avg CPU Usage: {avg_cpu_usage} combined_memory_usage: {required_memory + avg_memory_usage } combined_cpu_usage: {required_cpu + avg_cpu_usage}\n"
+        #     )
 
         if (
             required_memory + avg_memory_usage > 15
-            and required_cpu + avg_cpu_usage > 1.8
+            and required_cpu + avg_cpu_usage > cpuThreshold  # 1.8  #1060.27
         ):
             return True
 
@@ -280,6 +305,11 @@ def monitor_containers():
     return False
 
 
+def generate_random_string(length, seed=None):
+    # random.seed(seed)
+    return "".join(random.choices(string.ascii_letters + string.digits, k=length))
+
+
 def client_ops(client_id, workload):
     num_write, num_read, rw_ratio = workload
 
@@ -291,10 +321,12 @@ def client_ops(client_id, workload):
     need_new_container = False
     errors = 0
     successes = 0
+    total_ops = 0
 
     # predict the container cpu and memory usage
     # launch new container if needed
     global transition
+
     # if no_space_in_container(num_write, num_read, rw_ratio):
     # if monitoring_thread(num_write, num_read, rw_ratio):
     with lock:
@@ -311,8 +343,16 @@ def client_ops(client_id, workload):
                 time.sleep(5)  # 0.5
                 transition = False
         # print("Transition Put check: ", transition)
-        key = f"key-{client_id}-{i}"  # NEED TO ADD RANDOMNESS IN KEY GENERATION AND VALUE GENERATION
-        value = f"value-{client_id}-{i}"
+        # key = f"key-{client_id}-{i}"  # NEED TO ADD RANDOMNESS IN KEY GENERATION AND VALUE GENERATION
+        # value = f"value-{client_id}-{i}"
+        key_seed = f"key-{client_id}-{i}"
+        key = generate_random_string(random.randint(1, 250), key_seed)
+        val_seed = f"value-{client_id}-{i}"
+        value = generate_random_string(random.randint(1, 250), val_seed)
+        # if i % 10 == 0:
+        #     with open("autoscaling_logs.txt", "a") as f:
+        #         f.write((f"Key size: {len(key)} Value size: {len(value)}\n"))
+        # print(f"Key: {key} Value: {value}")
 
         with lock:
             key_lengths.append(len(key))
@@ -345,6 +385,7 @@ def client_ops(client_id, workload):
                 written_keys.append(key)
 
             successes += 1
+            total_ops += 1
 
             # if response.status_code == 404:
             #     errors += 0
@@ -356,6 +397,7 @@ def client_ops(client_id, workload):
             #     written_keys.append(key)
         except Exception as e:
             errors += 1
+            total_ops += 1
             # launch_new_container()
             # print(f"Error during PUT request: {e}")
 
@@ -389,42 +431,53 @@ def client_ops(client_id, workload):
             #     f.write(f"GET response: {response.status_code}, {response.text}\n")
             if response.status_code == 404:
                 errors += 1
+                total_ops += 1
                 # print("**" * 68)
                 # print("Get Error")
                 # break
             else:
                 successes += 1
+                total_ops += 1
         except Exception as e:
             errors += 1
+            total_ops += 1
             # print(f"Error during GET request: {e}")
             # launch_new_container()
 
         operation_time = time.time() - start_time
         operation_times.append(operation_time)
 
-    return errors, successes, operation_times
+    return errors, successes, operation_times, total_ops
 
 
 def client_thread(client_id, workload, result_lists):
     print(f"Starting client thread {client_id}")
-    errors, successes, operation_times = client_ops(client_id, workload)
+    errors, successes, operation_times, total_ops = client_ops(client_id, workload)
     # print("Opertaions times: ", operation_times)
 
     with lock:
         result_lists["errors"].append(errors)
         result_lists["successes"].append(successes)
-        result_lists["operation_times"].append(
-            operation_times
-        )  # Collect all operation times
+        result_lists["operation_times"].append(operation_times)
+        result_lists["total_ops"].append(total_ops)
+
+        # Collect all operation times
     # print(f"Client {client_id} Errors: ", result_lists["errors"])
     # print(f"Client {client_id} Successes: ", result_lists["successes"])
     # print(f"Client {client_id} Operation Times: ", result_lists["operation_times"])
     # print(f"Finished client thread {client_id}")
 
 
-def run_clients():
+def run_clients(
+    WORKLOAD_TYPE,
+    STATS_FILE_NAME,
+    OVERALL_STATS_FILE_NAME,
+    RESOURCE_USAGE_FILE_NAME,
+    DYNAMIC_CPU_FILE_NAME,
+):
     # run one container
     global monitoring_active
+    global save_cpuThreshold
 
     # LAUNCHING TWO CONTAINRES AT BEGNINNG MADE NO DIFFERENCE
     # global start
@@ -433,6 +486,7 @@ def run_clients():
         "errors": [],
         "successes": [],
         "operation_times": [],
+        "total_ops": [],
     }
     # start = True
     launch_new_container()
@@ -451,16 +505,18 @@ def run_clients():
     # read workload from file
 
     # Worked well with workload.txt
-    with open("new_workload.txt", "r") as f:
+
+    # CAN FLIP THE READS AND WRITES TO HAVE READS < WRITE AND VICE VERSA
+    with open(WORKLOAD_TYPE, "r") as f:
         workload = f.readlines()
         workload = [line.strip().split(" ") for line in workload]
         workload = [
             (
-                int(n_write),
                 int(n_read),
+                int(n_write),
                 float(rw_ratio),
             )
-            for n_write, n_read, rw_ratio in workload
+            for n_read, n_write, rw_ratio in workload
         ]
         # workload = [
         #     (
@@ -502,12 +558,32 @@ def run_clients():
     #     statistics.mean(operation_times) if operation_times else float("inf")
     #     for operation_times in result_lists["operation_times"]
     # ]
-    error_rates = [
-        e / (r + w) if r + w > 0 else 0
-        for e, r, w in zip(
-            result_lists["errors"], [w[0] for w in workload], [w[1] for w in workload]
-        )
-    ]
+
+    error_rates = []
+    for errors, num_reads, num_writes, total_ops in zip(
+        result_lists["errors"],
+        [w[0] for w in workload],
+        [w[1] for w in workload],
+        result_lists["total_ops"],
+    ):
+        # total_operations = num_writes + num_reads
+        if total_ops > 0:
+            # print(
+            #     f"Num Reads: {num_reads} Num Writes: {num_writes} Total operations: {total_ops}"
+            # )
+            # print("Errors: ", errors)
+            error_rate = errors / total_ops
+            # print("Error Rate: ", error_rate)
+        else:
+            error_rate = 0
+        error_rates.append(error_rate)
+
+    # error_rates = [
+    #     e / (r + w) if r + w > 0 else 0
+    #     for e, r, w in zip(
+    #         result_lists["errors"], [w[0] for w in workload], [w[1] for w in workload]
+    #     )
+    # ]
 
     monitoring_active = False
     # might remove the transition time or reduce it
@@ -526,7 +602,7 @@ def run_clients():
     ]
 
     # Open a CSV file to write the client data
-    with open("autoscaling_client_metrics.csv", "w", newline="") as csvfile:
+    with open(STATS_FILE_NAME, "w", newline="") as csvfile:
         csvwriter = csv.writer(csvfile)
 
         # Write the header
@@ -552,8 +628,8 @@ def run_clients():
         "Metric",
         "Num Containers Launched",
         "Combined Threshold",
-        "CPU Weight",
-        "Memory Weight",
+        # "CPU Weight",
+        # "Memory Weight",
         "Mean Reads",
         "Std Dev Reads",
         "Variance Reads",
@@ -576,7 +652,11 @@ def run_clients():
 
     # Open another CSV file to write the overall statistics
     # print("OVerall Check")
-    with open("autoscaling_overall_stats.csv", "w", newline="") as csvfile:
+    with open(
+        OVERALL_STATS_FILE_NAME,
+        "w",
+        newline="",
+    ) as csvfile:
         csvwriter = csv.writer(csvfile)
 
         # Write the overall stats header
@@ -587,8 +667,8 @@ def run_clients():
             "Overall Stats",
             total_containers,
             combined_threshold,
-            cpu_weight,
-            memory_weight,
+            # cpu_weight,
+            # memory_weight,
             statistics.mean([w[0] for w in workload]),
             statistics.stdev([w[0] for w in workload]),
             statistics.variance([w[0] for w in workload]),
@@ -610,7 +690,7 @@ def run_clients():
         ]
         csvwriter.writerow(overall_stats)
 
-    with open("resource_usage.csv", "w", newline="") as csvfile:
+    with open(RESOURCE_USAGE_FILE_NAME, "w", newline="") as csvfile:
         csvwriter = csv.writer(csvfile)
         # Writing the headers
         csvwriter.writerow(["Index", "Average CPU Usage", "Average Memory Usage"])
@@ -618,6 +698,12 @@ def run_clients():
         # Writing the data
         for index, (cpu, memory) in enumerate(zip(AVG_CPU_USAGES, AVG_MEMORY_USAGES)):
             csvwriter.writerow([index, cpu, memory])
+
+    with open(DYNAMIC_CPU_FILE_NAME, "w", newline="") as csvfile:
+        csvwriter = csv.writer(csvfile)
+        csvwriter.writerow(["Index", "CPU Threshold"])
+        for index, cpuThreshold in enumerate(save_cpuThreshold):
+            csvwriter.writerow([index, cpuThreshold])
 
     print("Done")
 
@@ -641,8 +727,8 @@ def run_clients():
 #     )
 
 
-if __name__ == "__main__":
-    run_clients()
+# if __name__ == "__main__":
+#     run_clients()
 
 
 # TEST IT WITH ACUTALLY SEEING REQUIRED AND AVERGAE CPU BEING COMPUTED AND MAYBE BASE THRESHOLD ON THAT TOO
@@ -661,3 +747,4 @@ if __name__ == "__main__":
 # Test it with Redis/Memcache
 # Check PROFESSOR'S WAY OF COMPUTING THROUGHPUT AND LATENCY AND MAKE CHANGES IF NECESSARY
 # Batching testing and testing with more reads and writes vs otherwise
+# COMBINE THE LIGHT AND HEAY WORKLOAD DATA TOGETHER TO TRAIN THE ML MODEL AS DOING THAT SEPERATELY CURRENTLY

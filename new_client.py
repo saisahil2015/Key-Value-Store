@@ -124,6 +124,7 @@ import string
 import docker
 import statistics
 import threading
+import math
 
 HOST = "127.0.0.1"
 NUM_CLIENTS = 500
@@ -254,7 +255,7 @@ def client_ops(client_id, max_stats):
     server_url = servers[container.id]
     # print("Server url: ", server_url)
     combination = random.choice(combinations)
-    NUM_REQUESTS = random.randint(150, 10000)
+    NUM_REQUESTS = random.randint(150, 350)
     NUM_WRITE_REQUESTS, NUM_READ_REQUESTS = 0, 0
 
     if combination == "RI":
@@ -337,7 +338,11 @@ def client_ops(client_id, max_stats):
         std_value_size,
         var_key_size,
         var_value_size,
-    ) = (0, 0, 0, 0, 0, 0)
+        read_write_product,
+        std_size_ratio,
+        mean_key_squared,
+        log_num_read,
+    ) = (0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
 
     if len(written_keys) > 0:
         mean_key_size = statistics.mean([len(key) for key in written_keys])
@@ -349,33 +354,28 @@ def client_ops(client_id, max_stats):
         var_key_size = statistics.variance([len(key) for key in written_keys])
         var_value_size = statistics.variance([len(value) for value in written_values])
 
-    # if len(written_keys) > 0:
-    #     mean_key_size = sum([len(key) for key in written_keys]) / len(written_keys)
-    #     mean_value_size = sum([len(value) for value in written_values]) / len(
-    #         written_values
-    #     )
-    #     std_key_size = (
-    #         sum([(len(key) - mean_key_size) ** 2 for key in written_keys])
-    #         / len(written_keys)
-    #     ) ** 0.5
-    #     std_value_size = (
-    #         sum([(len(value) - mean_value_size) ** 2 for value in written_values])
-    #         / len(written_values)
-    #     ) ** 0.5
-    #     var_key_size = std_key_size**2
-    #     var_value_size = std_value_size**2
+        read_write_product = NUM_READ_REQUESTS * NUM_WRITE_REQUESTS
+        std_size_ratio = std_key_size / std_value_size if std_value_size != 0 else 0
+        mean_key_squared = mean_key_size**2
+        log_num_read = math.log(NUM_READ_REQUESTS + 1)  # +1 to avoid log(0)
 
     METRICS_URL = f"http://{HOST}:90"
     metrics = {
         "num_reads": NUM_READ_REQUESTS,
         "num_writes": NUM_WRITE_REQUESTS,
-        "read_write_ratio": NUM_READ_REQUESTS / NUM_WRITE_REQUESTS,
+        "read_write_ratio": NUM_READ_REQUESTS / NUM_WRITE_REQUESTS
+        if NUM_WRITE_REQUESTS != 0
+        else 0,
         "mean_key_size": mean_key_size,
         "mean_value_size": mean_value_size,
         "std_key_size": std_key_size,
         "std_value_size": std_value_size,
         "var_key_size": var_key_size,
         "var_value_size": var_value_size,
+        "read_write_product": read_write_product,
+        "std_size_ratio": std_size_ratio,
+        "mean_key_squared": mean_key_squared,
+        "log_num_read": log_num_read,
         "max_cpu_usage": max_cpu_usage,
         "max_memory_usage": max_memory_usage,
     }

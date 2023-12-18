@@ -25,6 +25,7 @@
 
 #     # dump(model, 'models/lin_reg.joblib')
 
+
 from sklearn.linear_model import LinearRegression
 from sklearn.model_selection import train_test_split
 from joblib import dump

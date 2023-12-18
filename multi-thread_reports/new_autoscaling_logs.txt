@@ -1,0 +1,124 @@
+Updated CPU Threshold: 1.8
+Autoscale checkpint Required Memory: 50.91062365256158 Avg Memory Usage: 14.91796875 Required CPU: 41.67024171629975 Avg CPU Usage: 0.08371428571428571 combined_memory_usage: 65.82859240256158 combined_cpu_usage: 41.753956002014036
+Updated CPU Threshold: 1.8
+Autoscale checkpint Required Memory: 46.20764988914027 Avg Memory Usage: 14.82421875 Required CPU: 25.899713230484224 Avg CPU Usage: 0.003399750933997509 combined_memory_usage: 61.03186863914027 combined_cpu_usage: 25.90311298141822
+Updated CPU Threshold: 1.8
+Autoscale checkpint Required Memory: 43.70070957902001 Avg Memory Usage: 14.822265625 Required CPU: 17.528671381867195 Avg CPU Usage: 0.003617242993599035 combined_memory_usage: 58.52297520402001 combined_cpu_usage: 17.532288624860794
+Updated CPU Threshold: 1.8
+Autoscale checkpint Required Memory: 42.16438636717242 Avg Memory Usage: 14.87109375 Required CPU: 8.683890472832557 Avg CPU Usage: 0.004721935495002827 combined_memory_usage: 57.03548011717242 combined_cpu_usage: 8.68861240832756
+Updated CPU Threshold: 1.8
+Autoscale checkpint Required Memory: 45.63897048166184 Avg Memory Usage: 14.810546875 Required CPU: 23.760199034563055 Avg CPU Usage: 0.002668598795798883 combined_memory_usage: 60.44951735666184 combined_cpu_usage: 23.762867633358855
+Updated CPU Threshold: 23.528167529995894
+Autoscale checkpint Required Memory: 51.80784667112079 Avg Memory Usage: 14.79765625 Required CPU: 41.92716435931678 Avg CPU Usage: 0.0031183504925037775 combined_memory_usage: 66.60550292112079 combined_cpu_usage: 41.93028270980928
+Updated CPU Threshold: 23.563432871554944
+Autoscale checkpint Required Memory: 47.852761255921735 Avg Memory Usage: 14.821614583333334 Required CPU: 28.634395029894403 Avg CPU Usage: 0.0026672219751689478 combined_memory_usage: 62.67437583925507 combined_cpu_usage: 28.637062251869573
+Updated CPU Threshold: 24.11022272564521
+Autoscale checkpint Required Memory: 45.378005548519255 Avg Memory Usage: 14.80859375 Required CPU: 19.16482254423609 Avg CPU Usage: 0.003346658477781747 combined_memory_usage: 60.186599298519255 combined_cpu_usage: 19.168169202713873
+Updated CPU Threshold: 24.437398841215828
+Autoscale checkpint Required Memory: 44.87594667051295 Avg Memory Usage: 14.86572265625 Required CPU: 25.06116735545863 Avg CPU Usage: 0.006382975962807828 combined_memory_usage: 59.74166932676295 combined_cpu_usage: 25.067550331421437
+Updated CPU Threshold: 27.97593101700315
+Autoscale checkpint Required Memory: 44.87594667051295 Avg Memory Usage: 14.89697265625 Required CPU: 25.06116735545863 Avg CPU Usage: 0.015423233742951835 combined_memory_usage: 59.77291932676295 combined_cpu_usage: 25.07659058920158
+Updated CPU Threshold: 24.605192592881608
+Autoscale checkpint Required Memory: 44.87594667051295 Avg Memory Usage: 14.89697265625 Required CPU: 25.06116735545863 Avg CPU Usage: 0.015423233742951835 combined_memory_usage: 59.77291932676295 combined_cpu_usage: 25.07659058920158
+Updated CPU Threshold: 25.07478253764555
+Autoscale checkpint Required Memory: 44.87594667051295 Avg Memory Usage: 14.89697265625 Required CPU: 25.06116735545863 Avg CPU Usage: 0.015423233742951835 combined_memory_usage: 59.77291932676295 combined_cpu_usage: 25.07659058920158
+Updated CPU Threshold: 25.07478253764555
+Autoscale checkpint Required Memory: 44.87594667051295 Avg Memory Usage: 14.89697265625 Required CPU: 25.06116735545863 Avg CPU Usage: 0.015423233742951835 combined_memory_usage: 59.77291932676295 combined_cpu_usage: 25.07659058920158
+Updated CPU Threshold: 25.07659058920158
+Autoscale checkpint Required Memory: 44.87594667051295 Avg Memory Usage: 14.89697265625 Required CPU: 25.06116735545863 Avg CPU Usage: 0.015423233742951835 combined_memory_usage: 59.77291932676295 combined_cpu_usage: 25.07659058920158
+Updated CPU Threshold: 25.07659058920158
+Autoscale checkpint Required Memory: 44.87594667051295 Avg Memory Usage: 14.89697265625 Required CPU: 25.06116735545863 Avg CPU Usage: 0.015423233742951835 combined_memory_usage: 59.77291932676295 combined_cpu_usage: 25.07659058920158
+Updated CPU Threshold: 25.07659058920158
+Autoscale checkpint Required Memory: 44.87594667051295 Avg Memory Usage: 14.89697265625 Required CPU: 25.06116735545863 Avg CPU Usage: 0.015423233742951835 combined_memory_usage: 59.77291932676295 combined_cpu_usage: 25.07659058920158
+Updated CPU Threshold: 25.37994988386845
+Autoscale checkpint Required Memory: 47.29513248045932 Avg Memory Usage: 14.86572265625 Required CPU: 26.586636337063872 Avg CPU Usage: 0.0067507254720592606 combined_memory_usage: 62.16085513670932 combined_cpu_usage: 26.593387062535932
+Updated CPU Threshold: 25.68330917853532
+Autoscale checkpint Required Memory: 47.29513248045932 Avg Memory Usage: 14.86572265625 Required CPU: 26.586636337063872 Avg CPU Usage: 0.0067507254720592606 combined_memory_usage: 62.16085513670932 combined_cpu_usage: 26.593387062535932
+Updated CPU Threshold: 25.68330917853532
+Autoscale checkpint Required Memory: 47.29513248045932 Avg Memory Usage: 14.86572265625 Required CPU: 26.586636337063872 Avg CPU Usage: 0.0067507254720592606 combined_memory_usage: 62.16085513670932 combined_cpu_usage: 26.593387062535932
+Updated CPU Threshold: 25.98666847320219
+Autoscale checkpint Required Memory: 44.406155718121695 Avg Memory Usage: 14.864583333333334 Required CPU: 25.054729889274743 Avg CPU Usage: 0.003641109053700483 combined_memory_usage: 59.27073905145503 combined_cpu_usage: 25.058370998328442
+Updated CPU Threshold: 25.983024555027562
+Autoscale checkpint Required Memory: 42.5786207660732 Avg Memory Usage: 14.86501736111111 Required CPU: 11.638651321243081 Avg CPU Usage: 0.005673087855539293 combined_memory_usage: 57.443638127184315 combined_cpu_usage: 11.64432440909862
+Updated CPU Threshold: 23.296571319006972
+Autoscale checkpint Required Memory: 43.588955058911914 Avg Memory Usage: 14.86545138888889 Required CPU: 18.38518427160646 Avg CPU Usage: 0.0035458496867834164 combined_memory_usage: 58.45440644780081 combined_cpu_usage: 18.388730121293243
+Updated CPU Threshold: 23.801474811586406
+Autoscale checkpint Required Memory: 47.02678007982357 Avg Memory Usage: 14.8671875 Required CPU: 31.954609031695107 Avg CPU Usage: 0.003365232910752601 combined_memory_usage: 61.89396757982357 combined_cpu_usage: 31.95797426460586
+Updated CPU Threshold: 23.801474811586406
+Autoscale checkpint Required Memory: 47.02678007982357 Avg Memory Usage: 14.8671875 Required CPU: 31.954609031695107 Avg CPU Usage: 0.003365232910752601 combined_memory_usage: 61.89396757982357 combined_cpu_usage: 31.95797426460586
+Updated CPU Threshold: 25.181395464841888
+Autoscale checkpint Required Memory: 47.02678007982357 Avg Memory Usage: 14.8671875 Required CPU: 31.954609031695107 Avg CPU Usage: 0.003365232910752601 combined_memory_usage: 61.89396757982357 combined_cpu_usage: 31.95797426460586
+Updated CPU Threshold: 25.181395464841888
+Autoscale checkpint Required Memory: 47.02678007982357 Avg Memory Usage: 14.8671875 Required CPU: 31.954609031695107 Avg CPU Usage: 0.003365232910752601 combined_memory_usage: 61.89396757982357 combined_cpu_usage: 31.95797426460586
+Updated CPU Threshold: 29.244125435943335
+Autoscale checkpint Required Memory: 45.23909879726098 Avg Memory Usage: 14.89626736111111 Required CPU: 21.773537802246626 Avg CPU Usage: 0.003459117663870372 combined_memory_usage: 60.13536615837209 combined_cpu_usage: 21.776996919910495
+Updated CPU Threshold: 28.136658068003065
+Autoscale checkpint Required Memory: 45.698820528342445 Avg Memory Usage: 14.873828125 Required CPU: 23.029021255780602 Avg CPU Usage: 0.0033493705066551653 combined_memory_usage: 60.57264865334244 combined_cpu_usage: 23.032370626287257
+Updated CPU Threshold: 28.136658068003065
+Autoscale checkpint Required Memory: 45.698820528342445 Avg Memory Usage: 14.873828125 Required CPU: 23.029021255780602 Avg CPU Usage: 0.0033493705066551653 combined_memory_usage: 60.57264865334244 combined_cpu_usage: 23.032370626287257
+Updated CPU Threshold: 26.351537340339345
+Autoscale checkpint Required Memory: 44.04518033975157 Avg Memory Usage: 14.875390625 Required CPU: 22.589294277167237 Avg CPU Usage: 0.003638148566134005 combined_memory_usage: 58.92057096475157 combined_cpu_usage: 22.59293242573337
+Updated CPU Threshold: 24.47852897256485
+Autoscale checkpint Required Memory: 42.747941089947076 Avg Memory Usage: 14.863671875 Required CPU: 13.345654589733304 Avg CPU Usage: 0.003551917467582841 combined_memory_usage: 57.61161296494708 combined_cpu_usage: 13.349206507200886
+Updated CPU Threshold: 20.75677542108385
+Autoscale checkpint Required Memory: 41.70979134285995 Avg Memory Usage: 14.864453125 Required CPU: 6.151632059289024 Avg CPU Usage: 0.003194728291676812 combined_memory_usage: 56.574244467859955 combined_cpu_usage: 6.1548267875807
+Updated CPU Threshold: 17.632341394617892
+Autoscale checkpint Required Memory: 44.986928302003236 Avg Memory Usage: 14.86484375 Required CPU: 18.99967926314974 Avg CPU Usage: 0.002472974083630753 combined_memory_usage: 59.851772052003234 combined_cpu_usage: 19.00215223723337
+Updated CPU Threshold: 16.826297716807115
+Autoscale checkpint Required Memory: 50.71902734044951 Avg Memory Usage: 14.8671875 Required CPU: 41.60642987724946 Avg CPU Usage: 0.003564303052305358 combined_memory_usage: 65.58621484044951 combined_cpu_usage: 41.60999418030177
+Updated CPU Threshold: 20.54182242761002
+Autoscale checkpint Required Memory: 44.36600617076539 Avg Memory Usage: 14.866832386363637 Required CPU: 18.69015708532718 Avg CPU Usage: 0.003578002722432053 combined_memory_usage: 59.23283855712903 combined_cpu_usage: 18.69373508804961
+Updated CPU Threshold: 19.76198296007327
+Autoscale checkpint Required Memory: 43.243158754007126 Avg Memory Usage: 14.8525390625 Required CPU: 12.426419292695025 Avg CPU Usage: 0.0032264128313155955 combined_memory_usage: 58.095697816507126 combined_cpu_usage: 12.42964570552634
+Updated CPU Threshold: 19.57807079973836
+Autoscale checkpint Required Memory: 52.5734858012208 Avg Memory Usage: 14.880859375 Required CPU: 44.65749595277682 Avg CPU Usage: 0.0038113240004323673 combined_memory_usage: 67.4543451762208 combined_cpu_usage: 44.66130727677725
+Updated CPU Threshold: 27.279366897577667
+Autoscale checkpint Required Memory: 42.643175817745984 Avg Memory Usage: 14.8603515625 Required CPU: 13.603545539867369 Avg CPU Usage: 0.003727779897842634 combined_memory_usage: 57.503527380245984 combined_cpu_usage: 13.607273319765211
+Updated CPU Threshold: 26.200391114084034
+Autoscale checkpint Required Memory: 44.202317975172164 Avg Memory Usage: 14.856971153846153 Required CPU: 14.294214414879328 Avg CPU Usage: 0.003969479989430488 combined_memory_usage: 59.05928912901832 combined_cpu_usage: 14.298183894868759
+Updated CPU Threshold: 20.738029056997433
+Autoscale checkpint Required Memory: 47.923222476889386 Avg Memory Usage: 14.857872596153847 Required CPU: 32.69913552460827 Avg CPU Usage: 0.0062767569862529305 combined_memory_usage: 62.78109507304323 combined_cpu_usage: 32.705412281594526
+Updated CPU Threshold: 18.328314336515515
+Autoscale checkpint Required Memory: 43.02777045042233 Avg Memory Usage: 14.858473557692308 Required CPU: 15.507065440781366 Avg CPU Usage: 0.008285652393173054 combined_memory_usage: 57.88624400811464 combined_cpu_usage: 15.515351093174539
+Updated CPU Threshold: 18.328314336515515
+Autoscale checkpint Required Memory: 43.02777045042233 Avg Memory Usage: 14.858473557692308 Required CPU: 15.507065440781366 Avg CPU Usage: 0.008285652393173054 combined_memory_usage: 57.88624400811464 combined_cpu_usage: 15.515351093174539
+Updated CPU Threshold: 18.328314336515515
+Autoscale checkpint Required Memory: 43.02777045042233 Avg Memory Usage: 14.858473557692308 Required CPU: 15.507065440781366 Avg CPU Usage: 0.008285652393173054 combined_memory_usage: 57.88624400811464 combined_cpu_usage: 15.515351093174539
+Updated CPU Threshold: 18.70992989119738
+Autoscale checkpint Required Memory: 50.45317547951969 Avg Memory Usage: 14.851841517857142 Required CPU: 37.00412345760247 Avg CPU Usage: 0.003023818478755031 combined_memory_usage: 65.30501699737684 combined_cpu_usage: 37.00714727608122
+Updated CPU Threshold: 23.251722567439874
+Autoscale checkpint Required Memory: 48.28920628775449 Avg Memory Usage: 14.858333333333333 Required CPU: 34.27980027136372 Avg CPU Usage: 0.0027941658736574523 combined_memory_usage: 63.14753962108782 combined_cpu_usage: 34.28259443723738
+Updated CPU Threshold: 23.567158998568445
+Autoscale checkpint Required Memory: 41.626154466537024 Avg Memory Usage: 14.859375 Required CPU: 4.891160643912932 Avg CPU Usage: 0.003207948501426077 combined_memory_usage: 56.485529466537024 combined_cpu_usage: 4.8943685924143585
+Updated CPU Threshold: 21.442962498416406
+Autoscale checkpint Required Memory: 46.351237148483584 Avg Memory Usage: 14.860677083333334 Required CPU: 24.353405338515582 Avg CPU Usage: 0.0037051216980947444 combined_memory_usage: 61.21191423181692 combined_cpu_usage: 24.357110460213676
+Updated CPU Threshold: 23.211314371824233
+Autoscale checkpint Required Memory: 45.112985491758856 Avg Memory Usage: 14.85888671875 Required CPU: 29.648004822964413 Avg CPU Usage: 0.002841648559788553 combined_memory_usage: 59.971872210508856 combined_cpu_usage: 29.6508464715242
+Updated CPU Threshold: 26.038413447494168
+Autoscale checkpint Required Memory: 40.90043618395823 Avg Memory Usage: 14.856387867647058 Required CPU: 2.2815854197300616 Avg CPU Usage: 0.0037869758267310037 combined_memory_usage: 55.756824051605285 combined_cpu_usage: 2.2853723955567924
+Updated CPU Threshold: 19.094058471389282
+Autoscale checkpint Required Memory: 52.84824540522603 Avg Memory Usage: 14.857306985294118 Required CPU: 47.46451016419539 Avg CPU Usage: 0.0033029263921279966 combined_memory_usage: 67.70555239052015 combined_cpu_usage: 47.46781309058752
+Updated CPU Threshold: 21.731102202059308
+Autoscale checkpint Required Memory: 45.26910823256634 Avg Memory Usage: 14.857766544117647 Required CPU: 21.240476150835697 Avg CPU Usage: 0.002841355390909926 combined_memory_usage: 60.126874776683984 combined_cpu_usage: 21.243317506226607
+Updated CPU Threshold: 14.990479091310299
+Autoscale checkpint Required Memory: 40.86817134497965 Avg Memory Usage: 14.848958333333334 Required CPU: 1.9718611901238599 Avg CPU Usage: 0.006085041966427337 combined_memory_usage: 55.717129678312986 combined_cpu_usage: 1.9779462320902872
+Updated CPU Threshold: 14.92919092443699
+Autoscale checkpint Required Memory: 40.86817134497965 Avg Memory Usage: 14.848958333333334 Required CPU: 1.9718611901238599 Avg CPU Usage: 0.006085041966427337 combined_memory_usage: 55.717129678312986 combined_cpu_usage: 1.9779462320902872
+Updated CPU Threshold: 14.92919092443699
+Autoscale checkpint Required Memory: 40.86887260933318 Avg Memory Usage: 14.848958333333334 Required CPU: 1.9728465192238231 Avg CPU Usage: 0.006085041966427337 combined_memory_usage: 55.71783094266652 combined_cpu_usage: 1.9789315611902505
+Updated CPU Threshold: 14.92919092443699
+Autoscale checkpint Required Memory: 40.86817134497965 Avg Memory Usage: 14.848958333333334 Required CPU: 1.9718611901238599 Avg CPU Usage: 0.006085041966427337 combined_memory_usage: 55.717129678312986 combined_cpu_usage: 1.9779462320902872
+Updated CPU Threshold: 5.831217552737543
+Autoscale checkpint Required Memory: 46.10365910391072 Avg Memory Usage: 14.86501736111111 Required CPU: 24.8217190262585 Avg CPU Usage: 0.0035662435643517795 combined_memory_usage: 60.96867646502183 combined_cpu_usage: 24.82528526982285
+Updated CPU Threshold: 6.5476111054567925
+Autoscale checkpint Required Memory: 41.707920332003354 Avg Memory Usage: 14.86697048611111 Required CPU: 7.432344146200746 Avg CPU Usage: 0.013463487255044287 combined_memory_usage: 56.57489081811447 combined_cpu_usage: 7.44580763345579
+Updated CPU Threshold: 7.641183385729893
+Autoscale checkpint Required Memory: 41.134784786303804 Avg Memory Usage: 14.872327302631579 Required CPU: 3.7250431119913943 Avg CPU Usage: 0.005069010118223227 combined_memory_usage: 56.007112088935386 combined_cpu_usage: 3.7301121221096176
+Updated CPU Threshold: 7.991616563733759
+Autoscale checkpint Required Memory: 41.57191226685379 Avg Memory Usage: 14.8650390625 Required CPU: 6.603822640770112 Avg CPU Usage: 0.006382132928175939 combined_memory_usage: 56.43695132935379 combined_cpu_usage: 6.610204773698288
+Updated CPU Threshold: 11.86670091763491
+Autoscale checkpint Required Memory: 44.86859824952984 Avg Memory Usage: 14.8783203125 Required CPU: 16.714386995301773 Avg CPU Usage: 0.007707793786235878 combined_memory_usage: 59.74691856202984 combined_cpu_usage: 16.722094789088008
+Updated CPU Threshold: 11.86670091763491
+Autoscale checkpint Required Memory: 44.86859824952984 Avg Memory Usage: 14.8783203125 Required CPU: 16.714386995301773 Avg CPU Usage: 0.007707793786235878 combined_memory_usage: 59.74691856202984 combined_cpu_usage: 16.722094789088008
+Updated CPU Threshold: 10.246062821487943
+Autoscale checkpint Required Memory: 42.74834572713576 Avg Memory Usage: 14.8666015625 Required CPU: 9.011686667711794 Avg CPU Usage: 0.019273593819495928 combined_memory_usage: 57.61494728963576 combined_cpu_usage: 9.030960261531291

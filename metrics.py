@@ -58,7 +58,14 @@ def store_metrics():
             var_value_size=data["var_value_size"],
             max_cpu_usage=data["max_cpu_usage"],
             max_memory_usage=data["max_memory_usage"],
+            # Add new features here
+            read_write_product=data["read_write_product"],
+            std_size_ratio=data["std_size_ratio"],
+            mean_key_squared=data["mean_key_squared"],
+            log_num_read=data["log_num_read"],
+            # Include other new features as needed
         )
+
         db.session.add(new_metric)
         db.session.commit()
         return (

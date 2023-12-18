@@ -11,7 +11,7 @@ def generate_workload(n=100):
 
     for _ in range(n):
         combination = random.choice(combinations)
-        NUM_REQUESTS = random.randint(150, 10000)
+        NUM_REQUESTS = random.randint(150, 350)
         NUM_WRITE_REQUESTS, NUM_READ_REQUESTS = 0, 0
 
         if combination == "RI":
@@ -26,8 +26,8 @@ def generate_workload(n=100):
 
         arr.append(
             (
-                NUM_WRITE_REQUESTS,
                 NUM_READ_REQUESTS,
+                NUM_WRITE_REQUESTS,
                 NUM_READ_REQUESTS / NUM_WRITE_REQUESTS,
             )
         )
@@ -39,6 +39,9 @@ if __name__ == "__main__":
     workload = generate_workload()
 
     # output on file
-    with open("new_workload.txt", "w") as f:
+    with open("newFeature_workload.txt", "w") as f:
         for n_write, n_read, rw_ratio in workload:
-            f.write(f"{n_write} {n_read} {rw_ratio}\n")
+            f.write(f"{n_read} {n_write} {rw_ratio}\n")
+
+
+# NOTE THAT CHANGED WHAT READ AND WRITE IS SO MAKE SURE IT MATCHES FOR AUTSOCALING AS IT MATCHES WITH FOR NON-AUTOSCALING
